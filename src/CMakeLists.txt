@@ -40,7 +40,14 @@ set(SOURCES
     unboxer.cpp
     )
 set(HEADERS
+    error.h
     unboxer.h
+    input.h
+    cacher.h
+    input_streamer.h
+    box_reader.h
+    uncachedfileunboxer.h
+    uncachedfileunboxer.cpp
     )
 
 
@@ -51,6 +58,7 @@ generate_export_header(${LIB_TARGET_NAME}${suffix}
 )
 target_include_directories(${LIB_TARGET_NAME}${suffix} PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
   $<INSTALL_INTERFACE:include/${LIB_TARGET_NAME}>  # <prefix>/include/unboxer
 )
 target_include_directories(${LIB_TARGET_NAME}${suffix} PRIVATE ${PROJECT_BINARY_DIR})

@@ -34,10 +34,10 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(TARGET mp4crawler)
 
 add_executable (${TARGET} mp4crawler.cpp)
-target_include_directories(${TARGET} PUBLIC
-  ${libunboxer_SOURCE_DIR}
-  ${libunboxer_BINARY_DIR}
-)
+#target_include_directories(${TARGET} PUBLIC
+#  ${libunboxer_SOURCE_DIR}
+#  ${libunboxer_BINARY_DIR}
+#)
 target_link_libraries (${TARGET} PRIVATE Qt::Core unboxer${UNBOXER_LIB_SUFFIX})
 
 install(

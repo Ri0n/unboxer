@@ -32,13 +32,10 @@ enable_testing(true)
 
 macro(add_unboxer_test target)
 add_executable (${target} ${target}.cpp)
-target_include_directories(${target} PUBLIC
-  $<BUILD_INTERFACE:${libunboxer_SOURCE_DIR}>
-  $<INSTALL_INTERFACE:include/unboxer>  # <prefix>/include/unboxer
-)
 
 target_link_libraries (${target} PRIVATE Qt::Test unboxer${UNBOXER_LIB_SUFFIX})
 add_test(NAME ${target} COMMAND ${target})
 endmacro()
 
 add_unboxer_test(dummy)
+add_unboxer_test(null_unboxer)
