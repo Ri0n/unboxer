@@ -25,6 +25,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #pragma once
 
 #include "reason.h"
+#include "unboxer_export.h"
 
 #include <QByteArray>
 
@@ -32,7 +33,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 namespace unboxer {
 
-class InputMemoryImpl {
+class UNBOXER_EXPORT InputMemoryImpl {
     std::function<void()>                   openedCallback;
     std::function<void(const QByteArray &)> dataReadCallback;
     std::function<void(unboxer::Reason)>    closedCallback;
@@ -53,6 +54,11 @@ public:
     }
     void open() { openedCallback(); }
     void read(std::size_t size);
+    void reset()
+    {
+        data.clear();
+        offset = 0;
+    }
 };
 
 } // namespace unboxer

@@ -24,9 +24,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
 
-#include "reason.h"
-
-#include <QByteArray>
+#include "boxreader_impl.h"
 
 #include <functional>
 #include <memory>
@@ -35,43 +33,26 @@ namespace unboxer {
 
 template <class InputStream> class BoxReader {
 public:
-    using OpenedCallback       = std::function<void()>;
-    using BoxStartedCallback   = std::function<void(int, std::uint64_t)>;
-    using DataReadCallback     = std::function<void(const QByteArray &)>;
-    using StreamClosedCallback = std::function<void(Reason)>;
-
-    template <typename OpenedCB, typename BoxStartedCB, typename DataReadCB, typename StreamFinishedCB>
-    BoxReader(const std::string &inputUri,
-              OpenedCB         &&streamOpened,
-              BoxStartedCB     &&boxStarted,
-              DataReadCB       &&dataRead,
-              StreamFinishedCB &&streamClosed) :
+    template <class... Args>
+    BoxReader(const std::string &inputUri, Args &&...args) :
+        impl(std::make_unique<BoxReaderImpl>(std::forward<Args>(args)...)),
         inputStream(inputUri,
-                    std::bind(&BoxReader::onStreamOpened, this),
-                    std::bind(&BoxReader::onDataRead, this, std::placeholders::_1),
-                    std::bind(&BoxReader::onStreamClosed, this, std::placeholders::_1)),
-        openedCallback(streamOpened), boxStartedCallback(boxStarted), dataReadCallback(dataRead),
-        streamClosedCallback(streamClosed)
+                    std::bind(&BoxReaderImpl::onStreamOpened, impl.get()),
+                    std::bind(&BoxReaderImpl::onStreamDataRead, impl.get(), std::placeholders::_1),
+                    std::bind(&BoxReaderImpl::onStreamClosed, impl.get(), std::placeholders::_1))
+
     {
     }
+
+    BoxReader(const BoxReader &) = delete;
+    BoxReader(BoxReader &&)      = delete;
 
     void open() { inputStream.open(); }
     void read(std::size_t size) { inputStream.read(size); }
 
 private:
-    void onStreamOpened() { openedCallback(); }
-    void onDataRead(const QByteArray &data) { }
-    void onStreamClosed(Reason reason) { streamClosedCallback(reason); }
-
-private:
-    InputStream inputStream;
-    std::size_t fullBoxSize;
-    QByteArray  incompleteBox;
-
-    OpenedCallback       openedCallback;
-    BoxStartedCallback   boxStartedCallback;
-    DataReadCallback     dataReadCallback;
-    StreamClosedCallback streamClosedCallback;
+    std::unique_ptr<BoxReaderImpl> impl;
+    InputStream                    inputStream;
 };
 
 }

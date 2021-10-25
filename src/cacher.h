@@ -29,6 +29,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 namespace unboxer {
 
 template <class CacherImpl> class Cacher {
+public:
+    void reset() { impl->reset(); }
+
 private:
     std::unique_ptr<CacherImpl> impl;
 };

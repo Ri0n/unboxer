@@ -39,3 +39,4 @@ endmacro()
 
 add_unboxer_test(mem_streamer)
 add_unboxer_test(null_unboxer)
+add_unboxer_test(mem_unboxer)

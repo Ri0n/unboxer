@@ -30,64 +30,56 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "unboxer.h"
 
 using namespace unboxer;
-using MemStreamer = unboxer::InputStreamer<InputMemoryImpl, NullCache>;
+using MemUnboxer = unboxer::Unboxer<unboxer::InputStreamer<InputMemoryImpl, NullCache>>;
 
-class MemStreamerTest : public QObject {
+class MemUnboxerTest : public QObject {
     Q_OBJECT
 
-    std::unique_ptr<MemStreamer> streamer;
-    bool                         gotOpened   = false;
-    bool                         gotDataRead = false;
-    bool                         gotClosed   = false;
-    QByteArray                   data;
+    std::unique_ptr<MemUnboxer> unboxer;
+    bool                        gotOpened    = false;
+    bool                        gotDataReady = false;
+    bool                        gotClosed    = false;
 
 private slots:
 
     void init()
     {
-        data        = QByteArray();
-        gotOpened   = false;
-        gotDataRead = false;
-        gotClosed   = false;
+        gotOpened    = false;
+        gotDataReady = false;
+        gotClosed    = false;
 
-        streamer = std::make_unique<MemStreamer>(
-            "SGVsbG8gV29ybGQ=",
+        // let's parse first 256 bytes of the demo file
+        unboxer = std::make_unique<MemUnboxer>(
+            "AAAAtW1vb2YAAAAQbWZoZAAAAAAAD+OzAAAAnXRyYWYAAAAYdGZoZAAAABgAAAABATEtAAAARewA"
+            "AAAUdHJ1bgAAAAEAAAABAAAAgAAAACx1dWlkbR2bBULVROaA4hQdr/dXsgEAAAAAADCvZXt2AAAA"
+            "AAABMS0AAAAAPXV1aWTUgH7yyjlGlY5UJsueRqefAQAAAAIAADCvZqyjAAAAAAABMS0AAAAwr2fd"
+            "0AAAAAAAATEtAAAARfRtZGF0PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz48"
+            "dHQgeG1sOmxhbmc9InNwYSIgeG1sbnM9Imh0dA==",
             [&]() mutable { gotOpened = true; },
-            [&](const QByteArray &data) mutable {
-                gotDataRead = true;
-                this->data  = data;
-                return Reason::Ok;
-            },
+            [&](MemUnboxer::Data) mutable { gotDataReady = true; },
             [&](unboxer::Reason) mutable { gotClosed = true; });
     }
 
     void openTest()
     {
-        streamer->open(); // will trigger opened immediatelly
+        unboxer->open(); // will trigger opened immediatelly
         QCOMPARE(gotOpened, true);
-        QCOMPARE(gotDataRead, false);
+        QCOMPARE(gotDataReady, false);
         QCOMPARE(gotClosed, false);
-        QCOMPARE(data, QByteArray());
     }
 
     void readTest()
     {
-        streamer->open();
-        streamer->read(5);
+        unboxer->open();
+        unboxer->read(256); // read all
         QCOMPARE(gotOpened, true);
-        QCOMPARE(gotDataRead, true);
-        QCOMPARE(gotClosed, false);
-        QCOMPARE(data, QByteArray("Hello", 5));
-        streamer->read(6);
-        QCOMPARE(gotOpened, true);
-        QCOMPARE(gotDataRead, true);
+        QCOMPARE(gotDataReady, true);
         QCOMPARE(gotClosed, true);
-        QCOMPARE(data, QByteArray(" World", 6));
     }
 
-    void cleanup() { streamer.reset(); }
+    void cleanup() { unboxer.reset(); }
 };
 
-QTEST_MAIN(MemStreamerTest)
+QTEST_MAIN(MemUnboxerTest)
 
-#include "mem_streamer.moc"
+#include "mem_unboxer.moc"

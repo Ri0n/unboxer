@@ -48,6 +48,8 @@ set(HEADERS
     inputmemoryimpl.h
     inputmemoryimpl.cpp
     boxreader.h
+    boxreader_impl.h
+    boxreader_impl.cpp
     )
 
 

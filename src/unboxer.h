@@ -37,7 +37,7 @@ namespace unboxer {
 template <class Source> class Unboxer {
 public:
     struct Box {
-        int           type;
+        QByteArray    type;
         std::uint64_t size;    // full size
         QByteArray    payload; // data of full size or less if incomplete
     };
@@ -61,6 +61,7 @@ public:
         boxStream(uri,
                   std::bind(&Unboxer::onStreamOpened, this),
                   std::bind(&Unboxer::onBoxOpened, this, std::placeholders::_1, std::placeholders::_2),
+                  std::bind(&Unboxer::onBoxClosed, this),
                   std::bind(&Unboxer::onDataRead, this, std::placeholders::_1),
                   std::bind(&Unboxer::onStreamClosed, this, std::placeholders::_1)),
         streamOpenedCallback(streamOpenedCallback), dataReadCallback(dataReadCallback),
@@ -71,10 +72,11 @@ public:
     void read(std::size_t size) { boxStream.read(size); }
 
 private:
-    void onStreamOpened() { streamOpenedCallback(); }
-    void onBoxOpened(int type, std::uint64_t) { }
-    void onDataRead(const QByteArray &data) { }
-    void onStreamClosed(Reason reason) { streamClosedCallback(reason); }
+    void   onStreamOpened() { streamOpenedCallback(); }
+    void   onBoxOpened(const QByteArray &type, std::uint64_t size) { }
+    void   onBoxClosed() { }
+    Reason onDataRead(const QByteArray &data) { return Reason::Ok; }
+    void   onStreamClosed(Reason reason) { streamClosedCallback(reason); }
 
 private:
     Reader                          boxStream;

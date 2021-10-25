@@ -34,6 +34,7 @@ public:
 
     void open() { impl->open(); }
     void read(std::size_t size) { impl->read(size); }
+    void reset() { impl->reset(); }
 
 private:
     std::unique_ptr<Impl> impl;

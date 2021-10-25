@@ -51,25 +51,27 @@ public:
     }
     void open() { openedCallback(); }
     void read([[maybe_unused]] std::size_t size) { closedCallback(unboxer::Reason::Ok); };
+    void reset() { }
 };
 
 class NullCache {
+public:
     NullCache([[maybe_unused]] const std::string &uri) { }
     QByteArray read([[maybe_unused]] std::size_t size) { return QByteArray(); }
     void       write([[maybe_unused]] const QByteArray &data) { }
+    void       reset() { }
 };
 
 template <class InputImpl, class CacherImpl> class InputStreamer {
 public:
     using OpenedCallback   = std::function<void()>;
-    using DataReadCallback = std::function<void(const QByteArray &)>;
+    using DataReadCallback = std::function<Reason(const QByteArray &)>;
     using ClosedCallback   = std::function<void(Reason)>;
 
-    template <typename OpenedCB, typename DataReadCB, typename ClosedCB>
     InputStreamer(const std::string &inputUri,
-                  OpenedCB         &&openedCallback,
-                  DataReadCB       &&dataReadCallback,
-                  ClosedCB         &&closedCallback) :
+                  OpenedCallback     openedCallback,
+                  DataReadCallback   dataReadCallback,
+                  ClosedCallback     closedCallback) :
         source(inputUri,
                std::bind(&InputStreamer::onStreamOpened, this),
                std::bind(&InputStreamer::onDataRead, this, std::placeholders::_1),
@@ -83,7 +85,14 @@ public:
 
 private:
     void onStreamOpened() { openedCallback(); }
-    void onDataRead(const QByteArray &data) { dataReadCallback(data); }
+    void onDataRead(const QByteArray &data)
+    {
+        if (dataReadCallback(data) != Reason::Ok) {
+            source.reset();
+            cacher.reset();
+            closedCallback(Reason::Corrupted);
+        }
+    }
     void onStreamClosed(Reason reason) { closedCallback(reason); }
 
 private:

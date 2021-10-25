@@ -26,6 +26,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 namespace unboxer {
 
-enum Reason { Ok, Eof, Timeout, Corrupted, SourceNotExist };
+enum Reason { Ok, NeedMoreData, Eof, Timeout, Corrupted, SourceNotExist };
 
 }
