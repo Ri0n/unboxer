@@ -40,14 +40,14 @@ set(SOURCES
     unboxer.cpp
     )
 set(HEADERS
-    error.h
+    reason.h
     unboxer.h
     input.h
     cacher.h
-    input_streamer.h
-    box_reader.h
-    uncachedfileunboxer.h
-    uncachedfileunboxer.cpp
+    inputstreamer.h
+    inputmemoryimpl.h
+    inputmemoryimpl.cpp
+    boxreader.h
     )
 
 

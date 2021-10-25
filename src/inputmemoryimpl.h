@@ -24,51 +24,35 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
 
-#include "cacher.h"
-#include "error.h"
-#include "input.h"
+#include "reason.h"
 
 #include <QByteArray>
 
 #include <functional>
-#include <string>
 
 namespace unboxer {
 
-template <class InputImpl, class CacherImpl> class InputStreamer {
-public:
-    using OpenedCallback   = std::function<void()>;
-    using DataReadCallback = std::function<void(const QByteArray &)>;
-    using ClosedCallback   = std::function<void(Reason)>;
+class InputMemoryImpl {
+    std::function<void()>                   openedCallback;
+    std::function<void(const QByteArray &)> dataReadCallback;
+    std::function<void(unboxer::Reason)>    closedCallback;
 
+    std::size_t offset = 0;
+    QByteArray  data;
+
+public:
     template <typename OpenedCB, typename DataReadCB, typename ClosedCB>
-    InputStreamer(const std::string &inputUri,
-                  OpenedCB         &&openedCallback,
-                  DataReadCB       &&dataReadCallback,
-                  ClosedCB         &&closedCallback) :
-        source(inputUri,
-               std::bind(&InputStreamer::onStreamOpened, this),
-               std::bind(&InputStreamer::onDataRead, this, std::placeholders::_1),
-               std::bind(&InputStreamer::onStreamClosed, this, std::placeholders::_1)),
-        openedCallback(openedCallback), dataReadCallback(dataReadCallback), closedCallback(closedCallback)
+    InputMemoryImpl(const std::string &base64data,
+                    OpenedCB         &&openedCallback,
+                    DataReadCB       &&dataReadCallback,
+                    ClosedCB         &&closedCallback) :
+        openedCallback(std::move(openedCallback)),
+        dataReadCallback(std::move(dataReadCallback)), closedCallback(std::move(closedCallback)),
+        data(QByteArray::fromBase64(QByteArray::fromRawData(base64data.data(), base64data.size())))
     {
     }
-
-    void open() { source.open(); }
-    void read(std::size_t size) { source.read(size); }
-
-private:
-    void onStreamOpened() { openedCallback(); }
-    void onDataRead(const QByteArray &data) { }
-    void onStreamClosed(Reason reason) { closedCallback(reason); }
-
-private:
-    Input<InputImpl>   source;
-    Cacher<CacherImpl> cacher;
-
-    OpenedCallback   openedCallback;
-    DataReadCallback dataReadCallback;
-    ClosedCallback   closedCallback;
+    void open() { openedCallback(); }
+    void read(std::size_t size);
 };
 
-}
+} // namespace unboxer

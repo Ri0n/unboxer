@@ -24,56 +24,69 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <QTest>
 
+#include "inputmemoryimpl.h"
 #include "inputstreamer.h"
 #include "reason.h"
 #include "unboxer.h"
 
 using namespace unboxer;
-using NullUnboxer = unboxer::Unboxer<unboxer::InputStreamer<NullSource, NullCache>>;
+using MemStreamer = unboxer::InputStreamer<InputMemoryImpl, NullCache>;
 
-class NullUnboxerTest : public QObject {
+class MemStreamerTest : public QObject {
     Q_OBJECT
 
-    std::unique_ptr<NullUnboxer> unboxer;
-    bool                         gotOpened    = false;
-    bool                         gotDataReady = false;
-    bool                         gotClosed    = false;
+    std::unique_ptr<MemStreamer> streamer;
+    bool                         gotOpened   = false;
+    bool                         gotDataRead = false;
+    bool                         gotClosed   = false;
+    QByteArray                   data;
 
 private slots:
 
     void init()
     {
-        gotOpened    = false;
-        gotDataReady = false;
-        gotClosed    = false;
+        data        = QByteArray();
+        gotOpened   = false;
+        gotDataRead = false;
+        gotClosed   = false;
 
-        unboxer = std::make_unique<NullUnboxer>(
-            "file:///dev/null",
+        streamer = std::make_unique<MemStreamer>(
+            "SGVsbG8gV29ybGQ=",
             [&]() mutable { gotOpened = true; },
-            [&](NullUnboxer::Data) mutable { gotDataReady = true; },
+            [&](const QByteArray &data) mutable {
+                gotDataRead = true;
+                this->data  = data;
+            },
             [&](unboxer::Reason) mutable { gotClosed = true; });
     }
 
     void openTest()
     {
-        unboxer->open(); // will trigger opened immediatelly
+        streamer->open(); // will trigger opened immediatelly
         QCOMPARE(gotOpened, true);
-        QCOMPARE(gotDataReady, false);
+        QCOMPARE(gotDataRead, false);
         QCOMPARE(gotClosed, false);
+        QCOMPARE(data, QByteArray());
     }
 
     void readTest()
     {
-        unboxer->open();
-        unboxer->read(1); // we read 1 byte. but with null unboxer it means everything
+        streamer->open();
+        streamer->read(5);
         QCOMPARE(gotOpened, true);
-        QCOMPARE(gotDataReady, false);
+        QCOMPARE(gotDataRead, true);
+        QCOMPARE(gotClosed, false);
+        QCOMPARE(data, QByteArray("Hello", 5));
+        streamer->read(6);
+        QCOMPARE(gotOpened, true);
+        QCOMPARE(gotDataRead, true);
         QCOMPARE(gotClosed, true);
+        QCOMPARE(data, QByteArray(" World", 6));
     }
 
-    void cleanup() { unboxer.reset(); }
+    void cleanup() { streamer.reset(); }
 };
 
-QTEST_MAIN(NullUnboxerTest)
+QTEST_MAIN(MemStreamerTest)
 
-#include "null_unboxer.moc"
+#include "mem_streamer.moc"

@@ -24,8 +24,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
 
-#include "box_reader.h"
-#include "error.h"
+#include "boxreader.h"
+#include "reason.h"
 #include "unboxer_export.h"
 
 #include <QObject>

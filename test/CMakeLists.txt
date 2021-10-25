@@ -37,5 +37,5 @@ target_link_libraries (${target} PRIVATE Qt::Test unboxer${UNBOXER_LIB_SUFFIX})
 add_test(NAME ${target} COMMAND ${target})
 endmacro()
 
-add_unboxer_test(dummy)
+add_unboxer_test(mem_streamer)
 add_unboxer_test(null_unboxer)

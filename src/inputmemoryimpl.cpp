@@ -22,10 +22,22 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "uncachedfileunboxer.h"
+#include "inputmemoryimpl.h"
 
 namespace unboxer {
 
-UncachedFileUnboxer::UncachedFileUnboxer() { }
+void InputMemoryImpl::read(std::size_t size)
+{
+    if (data.size() - offset > size) {
+        dataReadCallback(QByteArray::fromRawData(data.data() + offset, size));
+        offset += size;
+    } else {
+        dataReadCallback(QByteArray::fromRawData(data.data() + offset, data.size() - offset));
+        offset = data.size();
+    }
+    if (offset == std::size_t(data.size())) {
+        closedCallback(unboxer::Reason::Ok);
+    }
+}
 
 } // namespace unboxer
