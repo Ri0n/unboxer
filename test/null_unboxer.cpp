@@ -35,40 +35,45 @@ class NullUnboxerTest : public QObject {
     Q_OBJECT
 
     std::unique_ptr<NullUnboxer> unboxer;
-    bool                         gotOpened    = false;
-    bool                         gotDataReady = false;
-    bool                         gotClosed    = false;
+    bool                         gotStreamOpened = false;
+    bool                         gotDataRead     = false;
+    bool                         gotStreamClosed = false;
 
 private slots:
 
     void init()
     {
-        gotOpened    = false;
-        gotDataReady = false;
-        gotClosed    = false;
+        gotStreamOpened = false;
+        gotDataRead     = false;
+        gotStreamClosed = false;
 
         unboxer = std::make_unique<NullUnboxer>(
             "file:///dev/null",
-            [&]() mutable { gotOpened = true; },
-            [&](AnyBox) mutable { gotDataReady = true; },
-            [&](Reason) mutable { gotClosed = true; });
+            [&]() mutable {
+                gotStreamOpened                = true;
+                unboxer->rootBox()->onDataRead = [&](const QByteArray &) mutable {
+                    gotDataRead = true;
+                    return Reason::Ok;
+                };
+            },
+            [&](Reason) mutable { gotStreamClosed = true; });
     }
 
     void openTest()
     {
         unboxer->open(); // will trigger opened immediatelly
-        QCOMPARE(gotOpened, true);
-        QCOMPARE(gotDataReady, false);
-        QCOMPARE(gotClosed, false);
+        QCOMPARE(gotStreamOpened, true);
+        QCOMPARE(gotDataRead, false);
+        QCOMPARE(gotStreamClosed, false);
     }
 
     void readTest()
     {
         unboxer->open();
         unboxer->read(1); // we read 1 byte. but with null unboxer it means everything
-        QCOMPARE(gotOpened, true);
-        QCOMPARE(gotDataReady, false);
-        QCOMPARE(gotClosed, true);
+        QCOMPARE(gotStreamOpened, true);
+        QCOMPARE(gotDataRead, false);
+        QCOMPARE(gotStreamClosed, true);
     }
 
     void cleanup() { unboxer.reset(); }

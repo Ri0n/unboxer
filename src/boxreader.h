@@ -45,7 +45,7 @@ public:
     ~BoxReader();
 
     BoxReader(const BoxReader &) = delete;
-    BoxReader(BoxReader &&)      = delete;
+    BoxReader(BoxReader &&other);
 
     /**
      * @brief feed fresh input data either from input stream or from another box

@@ -52,8 +52,9 @@ public:
     Unboxer(Unboxer &&other)      = delete;
     Unboxer(const Unboxer &other) = delete;
 
-    void open() { stream.open(); }
-    void read(std::size_t size) { stream.read(size); }
+    Box::Ptr rootBox() const { return impl->rootBox(); }
+    void     open() { stream.open(); }
+    void     read(std::size_t size) { stream.read(size); }
 
 private:
 private:

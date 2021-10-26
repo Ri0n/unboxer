@@ -24,10 +24,56 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "unboxer_impl.h"
 
+#include <QVector>
+
 namespace unboxer {
 
-void UnboxerImpl::onBoxOpened(const QByteArray &type, std::uint64_t size) { }
+void UnboxerImpl::onStreamOpened()
+{
+    readers.emplace_back(
+        BoxReader { std::bind(&UnboxerImpl::onBoxOpened, this, std::placeholders::_1, std::placeholders::_2),
+                    std::bind(&UnboxerImpl::onBoxClosed, this),
+                    std::bind(&UnboxerImpl::onDataRead, this, std::placeholders::_1) },
+        std::make_shared<Box>(true));
+    streamOpenedCallback();
+}
 
-Reason UnboxerImpl::onDataRead(const QByteArray &data) { return Reason::Ok; }
+void UnboxerImpl::onStreamClosed(Reason reason) { streamClosedCallback(reason); }
+
+void UnboxerImpl::onBoxOpened(const QByteArray &type, std::uint64_t size)
+{
+    static QVector<QByteArray> containerBoxes { { "moof", "traf" } };
+
+    auto parentBox = readers.back().box;
+    readers.emplace_back(
+        BoxReader(std::bind(&UnboxerImpl::onBoxOpened, this, std::placeholders::_1, std::placeholders::_2),
+                  std::bind(&UnboxerImpl::onBoxClosed, this),
+                  std::bind(&UnboxerImpl::onDataRead, this, std::placeholders::_1)),
+        std::make_shared<Box>(containerBoxes.contains(type), type, size));
+    if (parentBox->onSubBoxOpen) {
+        parentBox->onSubBoxOpen(readers.back().box);
+    }
+}
+
+Reason UnboxerImpl::onDataRead(const QByteArray &data)
+{
+    if (readers.back().box->isContainer) {
+        return readers.back().reader.feed(data);
+    } else {
+        auto box = readers.back().box;
+        if (box && box->onDataRead) {
+            return box->onDataRead(data);
+        }
+    }
+    return Reason::Ok;
+}
+
+void UnboxerImpl::onBoxClosed()
+{
+    if (readers.back().box->onClose) {
+        readers.back().box->onClose();
+    }
+    readers.pop_back();
+}
 
 } // namespace unboxer

@@ -174,6 +174,8 @@ BoxReader::BoxReader(BoxOpenedCallback &&boxOpened, BoxClosedCallback &&boxClose
     impl->dataReadCallback  = std::move(dataRead);
 }
 
+BoxReader::BoxReader(BoxReader &&other) { impl = std::move(other.impl); }
+
 BoxReader::~BoxReader() { } // just to know how to destroy impl
 
 Reason BoxReader::feed(const QByteArray &inputData) { return impl->feed(inputData); }

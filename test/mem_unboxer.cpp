@@ -36,17 +36,17 @@ class MemUnboxerTest : public QObject {
     Q_OBJECT
 
     std::unique_ptr<MemUnboxer> unboxer;
-    bool                        gotOpened    = false;
-    bool                        gotDataReady = false;
-    bool                        gotClosed    = false;
+    bool                        gotStreamOpened = false;
+    bool                        gotDataRead     = false;
+    bool                        gotStreamClosed = false;
 
 private slots:
 
     void init()
     {
-        gotOpened    = false;
-        gotDataReady = false;
-        gotClosed    = false;
+        gotStreamOpened = false;
+        gotDataRead     = false;
+        gotStreamClosed = false;
 
         // let's parse first 256 bytes of the demo file
         unboxer = std::make_unique<MemUnboxer>(
@@ -55,26 +55,31 @@ private slots:
             "AAABMS0AAAAAPXV1aWTUgH7yyjlGlY5UJsueRqefAQAAAAIAADCvZqyjAAAAAAABMS0AAAAwr2fd"
             "0AAAAAAAATEtAAAARfRtZGF0PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz48"
             "dHQgeG1sOmxhbmc9InNwYSIgeG1sbnM9Imh0dA==",
-            [&]() mutable { gotOpened = true; },
-            [&](AnyBox) mutable { gotDataReady = true; },
-            [&](Reason) mutable { gotClosed = true; });
+            [&]() mutable {
+                gotStreamOpened                = true;
+                unboxer->rootBox()->onDataRead = [&](const QByteArray &) mutable {
+                    gotDataRead = true;
+                    return Reason::Ok;
+                };
+            },
+            [&](Reason) mutable { gotStreamClosed = true; });
     }
 
     void openTest()
     {
         unboxer->open(); // will trigger opened immediatelly
-        QCOMPARE(gotOpened, true);
-        QCOMPARE(gotDataReady, false);
-        QCOMPARE(gotClosed, false);
+        QCOMPARE(gotStreamOpened, true);
+        QCOMPARE(gotDataRead, false);
+        QCOMPARE(gotStreamClosed, false);
     }
 
     void readTest()
     {
         unboxer->open();
         unboxer->read(256); // read all
-        QCOMPARE(gotOpened, true);
-        QCOMPARE(gotDataReady, true);
-        QCOMPARE(gotClosed, true);
+        QCOMPARE(gotStreamOpened, true);
+        QCOMPARE(gotDataRead, true);
+        QCOMPARE(gotStreamClosed, true);
     }
 
     void cleanup() { unboxer.reset(); }

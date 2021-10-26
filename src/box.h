@@ -24,6 +24,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
 
+#include "reason.h"
+
 #include <QByteArray>
 
 #include <functional>
@@ -31,17 +33,23 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <variant>
 
 namespace unboxer {
+
 struct Box {
+    using Ptr = std::shared_ptr<Box>;
+
+    inline Box(bool isContainer = false, QByteArray type = QByteArray(), std::uint64_t size = 0) :
+        isContainer(isContainer), type(type), size(size)
+    {
+    }
+
+    bool          isContainer = false;
     QByteArray    type;
-    std::uint64_t size;    // full size
-    QByteArray    payload; // data of full size or less if incomplete
-};
+    std::uint64_t size; // full size
 
-struct ProgressingBox {
-    Box                                     box;
-    std::function<void(const QByteArray &)> onDataRead;
+    // callbacks to be set by a library user
+    std::function<void(Box::Ptr)>             onSubBoxOpen;
+    std::function<Reason(const QByteArray &)> onDataRead;
+    std::function<void()>                     onClose;
 };
-
-using AnyBox = std::variant<Box, std::shared_ptr<ProgressingBox>>;
 
 }

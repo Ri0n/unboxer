@@ -25,9 +25,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #pragma once
 
 #include "box.h"
+#include "boxreader.h"
 #include "reason.h"
 #include "unboxer_export.h"
 
+#include <list>
 #include <memory>
 #include <variant>
 
@@ -36,31 +38,37 @@ namespace unboxer {
 class UNBOXER_EXPORT UnboxerImpl {
 public:
     using StreamOpenedCallback = std::function<void()>;
-    using DataReadCallback     = std::function<void(AnyBox)>;
+    using NewBoxCallback       = std::function<void(Box::Ptr)>;
     using StreamClosedCallback = std::function<void(Reason)>;
 
-    UnboxerImpl(StreamOpenedCallback &&streamOpenedCallback,
-                DataReadCallback     &&dataReadCallback,
-                StreamClosedCallback &&streamClosedCallback) :
-        streamOpenedCallback(std::move(streamOpenedCallback)),
-        dataReadCallback(std::move(dataReadCallback)), streamClosedCallback(std::move(streamClosedCallback))
+    UnboxerImpl(StreamOpenedCallback &&streamOpenedCallback, StreamClosedCallback &&streamClosedCallback) :
+        streamOpenedCallback(std::move(streamOpenedCallback)), streamClosedCallback(std::move(streamClosedCallback))
     {
     }
 
-    // streaming
-    void   onStreamOpened() { streamOpenedCallback(); }
-    Reason onDataRead(const QByteArray &data);
-    void   onStreamClosed(Reason reason) { streamClosedCallback(reason); }
+    Box::Ptr rootBox() const { return readers.empty() ? Box::Ptr {} : readers.front().box; }
 
+    // streaming
+    void   onStreamOpened();
+    void   onStreamClosed(Reason reason);
+    Reason onDataRead(const QByteArray &data);
+
+private:
     // unboxing
     void onBoxOpened(const QByteArray &type, std::uint64_t size);
-    void onBoxClosed() { }
-
-    std::shared_ptr<ProgressingBox> progressingBox; // if any currently
+    void onBoxClosed();
 
     StreamOpenedCallback streamOpenedCallback;
-    DataReadCallback     dataReadCallback;
     StreamClosedCallback streamClosedCallback;
+
+    struct BoxItem {
+        inline BoxItem(BoxReader &&reader, Box::Ptr &&box) : reader(std::move(reader)), box(std::move(box)) { }
+
+        BoxReader reader;
+        Box::Ptr  box;
+    };
+
+    std::list<BoxItem> readers;
 };
 
 } // namespace unboxer
