@@ -24,43 +24,24 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
 
-#include "boxreader.h"
-#include "inputstreamer.h"
-#include "reason.h"
-#include "unboxer_export.h"
-#include "unboxer_impl.h"
+#include <QByteArray>
 
-#include <QObject>
-
+#include <functional>
+#include <memory>
 #include <variant>
 
 namespace unboxer {
-
-template <class Source, class Cache> class Unboxer {
-public:
-    template <class... Args>
-    Unboxer(const std::string &uri, Args &&...args) :
-        impl(std::make_unique<UnboxerImpl>(std::forward<Args>(args)...)),
-        stream(uri,
-               std::bind(&UnboxerImpl::onStreamOpened, impl.get()),
-               std::bind(&UnboxerImpl::onDataRead, impl.get(), std::placeholders::_1),
-               std::bind(&UnboxerImpl::onStreamClosed, impl.get(), std::placeholders::_1))
-
-    {
-    }
-
-    Unboxer(Unboxer &&other)      = delete;
-    Unboxer(const Unboxer &other) = delete;
-
-    void open() { stream.open(); }
-    void read(std::size_t size) { stream.read(size); }
-
-private:
-private:
-    std::unique_ptr<UnboxerImpl> impl;
-    InputStreamer<Source, Cache> stream;
+struct Box {
+    QByteArray    type;
+    std::uint64_t size;    // full size
+    QByteArray    payload; // data of full size or less if incomplete
 };
 
-}
+struct ProgressingBox {
+    Box                                     box;
+    std::function<void(const QByteArray &)> onDataRead;
+};
 
-UNBOXER_EXPORT void dummy_lib_fun();
+using AnyBox = std::variant<Box, std::shared_ptr<ProgressingBox>>;
+
+}

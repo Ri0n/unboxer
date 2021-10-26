@@ -22,9 +22,11 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "boxreader_impl.h"
+#include "boxreader.h"
 
 #include <QtEndian>
+
+#include <optional>
 
 namespace unboxer {
 
@@ -50,7 +52,25 @@ aligned(8) class Box (unsigned int(32) boxtype,
 }
 */
 
-Reason BoxReaderImpl::onStreamDataRead(const QByteArray &data)
+class BoxReaderImpl {
+public:
+    Reason feed(const QByteArray &data);
+    Reason close(Reason reason);
+
+    Reason sendData();
+
+    std::optional<std::uint64_t> fullBoxSize; // if not set -> not enough data to parse size
+
+    QByteArray    incompleteBox;           // a part of payload. could be somewhere in the middle of a box
+    int           parsingOffset       = 0; // from the start of incompleteBox
+    std::uint64_t boxPayloadBytesLeft = 0;
+
+    BoxReader::BoxOpenedCallback boxOpenedCallback;
+    BoxReader::BoxClosedCallback boxClosedCallback;
+    BoxReader::DataReadCallback  dataReadCallback;
+};
+
+Reason BoxReaderImpl::feed(const QByteArray &data)
 {
     incompleteBox += data;
     while (incompleteBox.size() - parsingOffset > 0) { // iterate over boxes
@@ -109,17 +129,16 @@ Reason BoxReaderImpl::onStreamDataRead(const QByteArray &data)
     return Reason::Ok;
 }
 
-void BoxReaderImpl::onStreamClosed(Reason reason)
+Reason BoxReaderImpl::close(Reason reason)
 {
     if (reason == Reason::Eof && fullBoxSize) { // we have unfinished box on the end of the stream
         if (*fullBoxSize) {                     // and its data wasn't consumed for some reason. looks wrong
-            streamClosedCallback(Reason::Corrupted);
-            return;
+            return Reason::Corrupted;
         } else {
             boxClosedCallback();
         }
     }
-    streamClosedCallback(reason);
+    return reason;
 }
 
 Reason BoxReaderImpl::sendData()
@@ -145,5 +164,20 @@ Reason BoxReaderImpl::sendData()
     }
     return Reason::Ok;
 }
+
+BoxReader::BoxReader(BoxOpenedCallback &&boxOpened, BoxClosedCallback &&boxClosed, DataReadCallback &&dataRead) :
+    impl(std::make_unique<BoxReaderImpl>())
+
+{
+    impl->boxOpenedCallback = std::move(boxOpened);
+    impl->boxClosedCallback = std::move(boxClosed);
+    impl->dataReadCallback  = std::move(dataRead);
+}
+
+BoxReader::~BoxReader() { } // just to know how to destroy impl
+
+Reason BoxReader::feed(const QByteArray &inputData) { return impl->feed(inputData); }
+
+Reason BoxReader::close(Reason reason) { return impl->close(reason); }
 
 } // namespace unboxer

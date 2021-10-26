@@ -24,35 +24,45 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
 
-#include "boxreader_impl.h"
+#include "reason.h"
+
+#include <QByteArray>
 
 #include <functional>
 #include <memory>
 
 namespace unboxer {
 
-template <class InputStream> class BoxReader {
-public:
-    template <class... Args>
-    BoxReader(const std::string &inputUri, Args &&...args) :
-        impl(std::make_unique<BoxReaderImpl>(std::forward<Args>(args)...)),
-        inputStream(inputUri,
-                    std::bind(&BoxReaderImpl::onStreamOpened, impl.get()),
-                    std::bind(&BoxReaderImpl::onStreamDataRead, impl.get(), std::placeholders::_1),
-                    std::bind(&BoxReaderImpl::onStreamClosed, impl.get(), std::placeholders::_1))
+class BoxReaderImpl;
 
-    {
-    }
+class BoxReader {
+public:
+    using BoxOpenedCallback = std::function<void(const QByteArray &, std::uint64_t)>;
+    using BoxClosedCallback = std::function<void()>;
+    using DataReadCallback  = std::function<Reason(const QByteArray &)>;
+
+    BoxReader(BoxOpenedCallback &&boxOpened, BoxClosedCallback &&boxClosed, DataReadCallback &&dataRead);
+    ~BoxReader();
 
     BoxReader(const BoxReader &) = delete;
     BoxReader(BoxReader &&)      = delete;
 
-    void open() { inputStream.open(); }
-    void read(std::size_t size) { inputStream.read(size); }
+    /**
+     * @brief feed fresh input data either from input stream or from another box
+     * @param inputData
+     * @return In most cases Reason::Ok
+     */
+    Reason feed(const QByteArray &inputData);
+
+    /**
+     * @brief close the box by some reason (stream eof for example).
+     * @param reason of closing
+     * @return another reason if the box disagree with the close
+     */
+    Reason close(Reason reason);
 
 private:
     std::unique_ptr<BoxReaderImpl> impl;
-    InputStream                    inputStream;
 };
 
 }

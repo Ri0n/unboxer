@@ -41,15 +41,17 @@ set(SOURCES
     )
 set(HEADERS
     reason.h
+    box.h
     unboxer.h
+    unboxer_impl.h
+    unboxer_impl.cpp
     input.h
     cacher.h
     inputstreamer.h
     inputmemoryimpl.h
     inputmemoryimpl.cpp
     boxreader.h
-    boxreader_impl.h
-    boxreader_impl.cpp
+    boxreader.cpp
     )
 
 

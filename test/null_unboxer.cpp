@@ -29,7 +29,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "unboxer.h"
 
 using namespace unboxer;
-using NullUnboxer = unboxer::Unboxer<unboxer::InputStreamer<NullSource, NullCache>>;
+using NullUnboxer = unboxer::Unboxer<NullSource, NullCache>;
 
 class NullUnboxerTest : public QObject {
     Q_OBJECT
@@ -50,8 +50,8 @@ private slots:
         unboxer = std::make_unique<NullUnboxer>(
             "file:///dev/null",
             [&]() mutable { gotOpened = true; },
-            [&](NullUnboxer::Data) mutable { gotDataReady = true; },
-            [&](unboxer::Reason) mutable { gotClosed = true; });
+            [&](AnyBox) mutable { gotDataReady = true; },
+            [&](Reason) mutable { gotClosed = true; });
     }
 
     void openTest()

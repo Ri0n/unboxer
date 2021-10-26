@@ -69,14 +69,15 @@ public:
     using ClosedCallback   = std::function<void(Reason)>;
 
     InputStreamer(const std::string &inputUri,
-                  OpenedCallback     openedCallback,
-                  DataReadCallback   dataReadCallback,
-                  ClosedCallback     closedCallback) :
+                  OpenedCallback   &&openedCallback,
+                  DataReadCallback &&dataReadCallback,
+                  ClosedCallback   &&closedCallback) :
         source(inputUri,
                std::bind(&InputStreamer::onStreamOpened, this),
                std::bind(&InputStreamer::onDataRead, this, std::placeholders::_1),
                std::bind(&InputStreamer::onStreamClosed, this, std::placeholders::_1)),
-        openedCallback(openedCallback), dataReadCallback(dataReadCallback), closedCallback(closedCallback)
+        openedCallback(std::move(openedCallback)), dataReadCallback(std::move(dataReadCallback)),
+        closedCallback(std::move(closedCallback))
     {
     }
 

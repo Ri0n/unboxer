@@ -24,56 +24,41 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
 
+#include "box.h"
 #include "reason.h"
 #include "unboxer_export.h"
 
-#include <QByteArray>
-
-#include <optional>
+#include <memory>
+#include <variant>
 
 namespace unboxer {
 
-class UNBOXER_EXPORT BoxReaderImpl {
+class UNBOXER_EXPORT UnboxerImpl {
 public:
     using StreamOpenedCallback = std::function<void()>;
-    using BoxOpenedCallback    = std::function<void(const QByteArray &, std::uint64_t)>;
-    using BoxClosedCallback    = std::function<void()>;
-    using DataReadCallback     = std::function<Reason(const QByteArray &)>;
+    using DataReadCallback     = std::function<void(AnyBox)>;
     using StreamClosedCallback = std::function<void(Reason)>;
 
-    template <typename StreamOpenedCB,
-              typename BoxOpenedCB,
-              typename BoxClosedCB,
-              typename DataReadCB,
-              typename StreamClosedCB>
-    BoxReaderImpl(StreamOpenedCB &&streamOpened,
-                  BoxOpenedCB    &&boxOpened,
-                  BoxClosedCB    &&boxClosed,
-                  DataReadCB     &&dataRead,
-                  StreamClosedCB &&streamClosed) :
-        openedCallback(streamOpened),
-        boxOpenedCallback(boxOpened), boxClosedCallback(boxClosed), dataReadCallback(dataRead),
-        streamClosedCallback(streamClosed)
+    UnboxerImpl(StreamOpenedCallback &&streamOpenedCallback,
+                DataReadCallback     &&dataReadCallback,
+                StreamClosedCallback &&streamClosedCallback) :
+        streamOpenedCallback(std::move(streamOpenedCallback)),
+        dataReadCallback(std::move(dataReadCallback)), streamClosedCallback(std::move(streamClosedCallback))
     {
     }
 
-    void   onStreamOpened() { openedCallback(); } // TODO if really nothing todo then pass cb directly to input stream
-    Reason onStreamDataRead(const QByteArray &data);
-    void   onStreamClosed(Reason reason);
+    // streaming
+    void   onStreamOpened() { streamOpenedCallback(); }
+    Reason onDataRead(const QByteArray &data);
+    void   onStreamClosed(Reason reason) { streamClosedCallback(reason); }
 
-private:
-    Reason sendData();
+    // unboxing
+    void onBoxOpened(const QByteArray &type, std::uint64_t size);
+    void onBoxClosed() { }
 
-private:
-    std::optional<std::uint64_t> fullBoxSize; // if not set -> not enough data to parse size
+    std::shared_ptr<ProgressingBox> progressingBox; // if any currently
 
-    QByteArray    incompleteBox;           // a part of payload. could be somewhere in the middle of a box
-    int           parsingOffset       = 0; // from the start of incompleteBox
-    std::uint64_t boxPayloadBytesLeft = 0;
-
-    StreamOpenedCallback openedCallback;
-    BoxOpenedCallback    boxOpenedCallback;
-    BoxClosedCallback    boxClosedCallback;
+    StreamOpenedCallback streamOpenedCallback;
     DataReadCallback     dataReadCallback;
     StreamClosedCallback streamClosedCallback;
 };

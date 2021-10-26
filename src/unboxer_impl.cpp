@@ -22,45 +22,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#pragma once
-
-#include "boxreader.h"
-#include "inputstreamer.h"
-#include "reason.h"
-#include "unboxer_export.h"
 #include "unboxer_impl.h"
-
-#include <QObject>
-
-#include <variant>
 
 namespace unboxer {
 
-template <class Source, class Cache> class Unboxer {
-public:
-    template <class... Args>
-    Unboxer(const std::string &uri, Args &&...args) :
-        impl(std::make_unique<UnboxerImpl>(std::forward<Args>(args)...)),
-        stream(uri,
-               std::bind(&UnboxerImpl::onStreamOpened, impl.get()),
-               std::bind(&UnboxerImpl::onDataRead, impl.get(), std::placeholders::_1),
-               std::bind(&UnboxerImpl::onStreamClosed, impl.get(), std::placeholders::_1))
+void UnboxerImpl::onBoxOpened(const QByteArray &type, std::uint64_t size) { }
 
-    {
-    }
+Reason UnboxerImpl::onDataRead(const QByteArray &data) { return Reason::Ok; }
 
-    Unboxer(Unboxer &&other)      = delete;
-    Unboxer(const Unboxer &other) = delete;
-
-    void open() { stream.open(); }
-    void read(std::size_t size) { stream.read(size); }
-
-private:
-private:
-    std::unique_ptr<UnboxerImpl> impl;
-    InputStreamer<Source, Cache> stream;
-};
-
-}
-
-UNBOXER_EXPORT void dummy_lib_fun();
+} // namespace unboxer

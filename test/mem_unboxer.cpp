@@ -30,7 +30,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "unboxer.h"
 
 using namespace unboxer;
-using MemUnboxer = unboxer::Unboxer<unboxer::InputStreamer<InputMemoryImpl, NullCache>>;
+using MemUnboxer = unboxer::Unboxer<InputMemoryImpl, NullCache>;
 
 class MemUnboxerTest : public QObject {
     Q_OBJECT
@@ -56,8 +56,8 @@ private slots:
             "0AAAAAAAATEtAAAARfRtZGF0PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz48"
             "dHQgeG1sOmxhbmc9InNwYSIgeG1sbnM9Imh0dA==",
             [&]() mutable { gotOpened = true; },
-            [&](MemUnboxer::Data) mutable { gotDataReady = true; },
-            [&](unboxer::Reason) mutable { gotClosed = true; });
+            [&](AnyBox) mutable { gotDataReady = true; },
+            [&](Reason) mutable { gotClosed = true; });
     }
 
     void openTest()
