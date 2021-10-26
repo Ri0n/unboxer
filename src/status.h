@@ -24,21 +24,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
 
-#include <memory>
-
 namespace unboxer {
 
-template <class Impl> class Input {
-public:
-    template <class... Args> Input(Args &&...args) : impl(std::make_unique<Impl>(std::forward<Args>(args)...)) { }
-
-    void        open() { impl->open(); }
-    void        read(std::size_t size) { impl->read(size); }
-    void        reset() { impl->reset(); }
-    std::size_t bytesAvailable() const { return impl->bytesAvailable(); }
-
-private:
-    std::unique_ptr<Impl> impl;
-};
+enum Status { Ok, NeedMoreData, Eof, Timeout, Corrupted, SourceNotExist };
 
 }

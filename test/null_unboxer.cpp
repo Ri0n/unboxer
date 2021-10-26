@@ -35,33 +35,35 @@ class NullUnboxerTest : public QObject {
     Q_OBJECT
 
     std::unique_ptr<NullUnboxer> unboxer;
-    bool                         gotStreamOpened   = false;
-    bool                         gotDataRead       = false;
-    bool                         gotStreamClosed   = false;
-    Status                       streamCloseStatus = Status::Ok;
+    bool                         gotStreamOpened    = false;
+    bool                         gotDataRead        = false;
+    bool                         gotStreamClosed    = false;
+    bool                         gotStreamDataReady = false;
+    Status                       streamCloseStatus  = Status::Ok;
 
 private slots:
 
     void init()
     {
-        gotStreamOpened   = false;
-        gotDataRead       = false;
-        gotStreamClosed   = false;
-        streamCloseStatus = Status::Ok;
+        gotStreamOpened    = false;
+        gotDataRead        = false;
+        gotStreamClosed    = false;
+        gotStreamDataReady = false;
+        streamCloseStatus  = Status::Ok;
 
-        unboxer = std::make_unique<NullUnboxer>(
-            "file:///dev/null",
-            [&]() mutable {
-                gotStreamOpened                = true;
-                unboxer->rootBox()->onDataRead = [&](const QByteArray &) mutable {
-                    gotDataRead = true;
-                    return Status::Ok;
-                };
-            },
-            [&](Status status) mutable {
-                streamCloseStatus = status;
-                gotStreamClosed   = true;
-            });
+        unboxer = std::make_unique<NullUnboxer>("file:///dev/null");
+        unboxer->setStreamOpenedCallback([this](Box::Ptr root) mutable {
+            gotStreamOpened  = true;
+            root->onDataRead = [&](const QByteArray &) mutable {
+                gotDataRead = true;
+                return Status::Ok;
+            };
+        });
+        unboxer->setStreamClosedCallback([this](Status status) mutable {
+            streamCloseStatus = status;
+            gotStreamClosed   = true;
+        });
+        unboxer->stream().setDataReadyCallback([this]() mutable { gotStreamDataReady = true; });
     }
 
     void openTest()
@@ -78,6 +80,7 @@ private slots:
         unboxer->read(1); // we read 1 byte. but with null unboxer it means everything
         QCOMPARE(gotStreamOpened, true);
         QCOMPARE(gotDataRead, false);
+        QCOMPARE(gotStreamDataReady, false);
         QCOMPARE(gotStreamClosed, true);
         QCOMPARE(streamCloseStatus, Status::Ok);
     }

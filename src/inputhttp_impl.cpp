@@ -22,21 +22,53 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "inputmemoryimpl.h"
+#include "inputhttp_impl.h"
+
+#include <QUrl>
 
 namespace unboxer {
 
-void InputMemoryImpl::read(std::size_t size)
+void InputHttpImpl::open()
 {
-    if (data.size() - offset > size) {
-        dataReadCallback(QByteArray::fromRawData(data.data() + offset, size));
-        offset += size;
-    } else {
-        dataReadCallback(QByteArray::fromRawData(data.data() + offset, data.size() - offset));
-        offset = data.size();
-    }
-    if (offset == std::size_t(data.size())) {
-        closedCallback(Status::Eof);
+    reply.reset(nam.get(QNetworkRequest(QUrl(QString::fromStdString(url)))));
+    connect(reply.get(), &QNetworkReply::metaDataChanged, this, [&]() { openedCallback(); });
+    connect(reply.get(), &QNetworkReply::readyRead, this, &InputHttpImpl::tryRead);
+}
+
+void InputHttpImpl::read(std::size_t size)
+{
+    needToRead += size;
+    tryRead();
+}
+
+void InputHttpImpl::reset() { reply.reset(); }
+
+void InputHttpImpl::tryRead()
+{
+    if (reply && reply->bytesAvailable()) {
+        auto dataSz = qMin(needToRead, reply->bytesAvailable());
+        if (dataSz) {
+            auto data = reply->read(dataSz);
+            needToRead -= data.size();
+            dataReadCallback(data);
+        }
+        if (!reply->bytesAvailable() && reply->isFinished()) {
+            auto status = Status::Ok;
+            switch (reply->error()) {
+            case QNetworkReply::NoError:
+                status = Status::Eof;
+                break;
+            case QNetworkReply::TimeoutError:
+                status = Status::Timeout;
+                break;
+            default:
+                status = Status::Corrupted;
+                break;
+            }
+            closedCallback(status);
+        } else if (reply->bytesAvailable()) {
+            dataReadyCallback();
+        }
     }
 }
 

@@ -38,7 +38,8 @@ class BoxReaderImpl;
 
 class UNBOXER_EXPORT BoxReader {
 public:
-    using BoxOpenedCallback = std::function<void(const QByteArray &, std::uint64_t)>;
+    // returns true if recursion is needed. otherwise payload will be treated as binary blob
+    using BoxOpenedCallback = std::function<bool(const QByteArray &, std::uint64_t, std::uint64_t)>;
     using BoxClosedCallback = std::function<void()>;
     using DataReadCallback  = std::function<Status(const QByteArray &)>;
 

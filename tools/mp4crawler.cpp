@@ -22,10 +22,95 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#include "inputfile_impl.h"
+#include "inputhttp_impl.h"
+#include "inputstreamer.h"
+#include "status.h"
 #include "unboxer.h"
 
-int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
+#include <QCommandLineParser>
+#include <QCoreApplication>
+#include <QFile>
+#include <QTimer>
+#include <QUrl>
+#include <QUuid>
+#include <QtDebug>
+
+#include <iostream>
+#include <sstream>
+
+#include <inttypes.h>
+
+using namespace unboxer;
+using FileUnboxer = unboxer::Unboxer<InputFileImpl, NullCache>;
+using HttpUnboxer = unboxer::Unboxer<InputHttpImpl, NullCache>;
+int spaces        = 0;
+
+void setupBox(Box::Ptr box)
 {
-    dummy_lib_fun();
-    return 0;
+    std::stringstream ss;
+    auto              type = box->type.isEmpty() ? QString("artificial root")
+                     : box->type.size() > 4      ? QUuid::fromRfc4122(box->type).toString()
+                                                 : QString::fromLatin1(box->type);
+    ss << QString(spaces, ' ').toStdString() << type.toStdString() << " of size " << box->size << " with fileOffset "
+       << box->fileOffset;
+    std::cout << ss.str() << std::endl;
+    box->onSubBoxOpen = setupBox;
+    box->onClose      = []() {
+        spaces -= 2;
+        return Status::Ok;
+    };
+    box->onDataRead = [&](const QByteArray &) mutable { return Status::Ok; };
+    spaces += 2;
+}
+
+template <class SpecificUnboxer> std::unique_ptr<SpecificUnboxer> makeUnboxer(const QString &uri, std::size_t readSize)
+{
+    std::unique_ptr<SpecificUnboxer> unboxer;
+    unboxer = std::make_unique<SpecificUnboxer>(uri.toStdString());
+    unboxer->setStreamOpenedCallback([unboxer = unboxer.get(), readSize](Box::Ptr rootBox) mutable {
+        qDebug("stream opened");
+        setupBox(rootBox);
+        if (unboxer->stream().bytesAvailable()) {
+            unboxer->read(readSize);
+        }
+    });
+    unboxer->setStreamClosedCallback([](Status status) mutable {
+        // let app start before exit
+        QTimer::singleShot(0, QCoreApplication::instance(), [status]() { QCoreApplication::exit(int(status)); });
+    });
+    unboxer->stream().setDataReadyCallback([unboxer = unboxer.get(), readSize]() mutable { unboxer->read(readSize); });
+    unboxer->open();
+
+    return unboxer;
+}
+
+int main(int argc, char *argv[])
+{
+    QCoreApplication app(argc, argv);
+    QCoreApplication::setApplicationName("unboxer");
+    QCoreApplication::setApplicationVersion("1.0");
+
+    QCommandLineParser parser;
+    parser.setApplicationDescription("Test helper");
+    parser.addHelpOption();
+    parser.addVersionOption();
+    QCommandLineOption uriOption(QStringList() << "u"
+                                               << "uri",
+                                 "URI to open (local file if given w/o scheme)",
+                                 "uri",
+                                 "text0.mp4");
+    parser.addOption(uriOption);
+    parser.process(app);
+    QString uri = parser.value(uriOption);
+
+    auto url = QUrl::fromUserInput(uri, "", QUrl::AssumeLocalFile);
+    if (url.scheme().isEmpty() || url.scheme() == "file") {
+        uri          = url.toLocalFile();
+        auto unboxer = makeUnboxer<FileUnboxer>(uri, 16384);
+        return app.exec();
+    } else {
+        auto unboxer = makeUnboxer<HttpUnboxer>(uri, 2048);
+        return app.exec();
+    }
 }

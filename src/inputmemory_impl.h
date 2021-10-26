@@ -24,53 +24,45 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
 
-#include "boxreader.h"
-#include "inputstreamer.h"
 #include "status.h"
 #include "unboxer_export.h"
-#include "unboxer_impl.h"
 
-#include <QObject>
+#include <QByteArray>
 
-#include <variant>
+#include <functional>
 
 namespace unboxer {
 
-template <class Source, class Cache> class Unboxer {
+class UNBOXER_EXPORT InputMemoryImpl {
+    std::function<void()>                   openedCallback;
+    std::function<void()>                   dataReadyCallback;
+    std::function<void(const QByteArray &)> dataReadCallback;
+    std::function<void(Status)>             closedCallback;
+
+    std::size_t offset = 0;
+    QByteArray  data;
+
 public:
-    using StreamType = InputStreamer<Source, Cache>;
-
-    Unboxer(const std::string &uri) :
-        impl(std::make_unique<UnboxerImpl>()),
-        stream_(uri,
-                std::bind(&UnboxerImpl::onStreamOpened, impl.get()),
-                std::bind(&UnboxerImpl::onStreamDataRead, impl.get(), std::placeholders::_1),
-                std::bind(&UnboxerImpl::onStreamClosed, impl.get(), std::placeholders::_1))
-
+    template <typename OpenedCB, typename DataReadyCB, typename DataReadCB, typename ClosedCB>
+    InputMemoryImpl(const std::string &base64data,
+                    OpenedCB         &&openedCallback,
+                    DataReadyCB      &&dataReadyCallback,
+                    DataReadCB       &&dataReadCallback,
+                    ClosedCB         &&closedCallback) :
+        openedCallback(std::move(openedCallback)),
+        dataReadyCallback(std::move(dataReadyCallback)), dataReadCallback(std::move(dataReadCallback)),
+        closedCallback(std::move(closedCallback)),
+        data(QByteArray::fromBase64(QByteArray::fromRawData(base64data.data(), base64data.size())))
     {
     }
-
-    Unboxer(Unboxer &&other)      = delete;
-    Unboxer(const Unboxer &other) = delete;
-
-    void setStreamOpenedCallback(UnboxerImpl::StreamOpenedCallback &&callback)
+    void open() { openedCallback(); }
+    void read(std::size_t size);
+    void reset()
     {
-        impl->streamOpenedCallback = std::move(callback);
+        data.clear();
+        offset = 0;
     }
-    void setStreamClosedCallback(UnboxerImpl::StreamClosedCallback &&callback)
-    {
-        impl->streamClosedCallback = std::move(callback);
-    }
-
-    Box::Ptr    rootBox() const { return impl->rootBox(); }
-    void        open() { stream_.open(); }
-    void        read(std::size_t size) { stream_.read(size); }
-    StreamType &stream() { return stream_; }
-
-private:
-private:
-    std::unique_ptr<UnboxerImpl> impl;
-    StreamType                   stream_;
+    std::size_t bytesAvailable() const { return data.size() - offset; }
 };
 
-}
+} // namespace unboxer

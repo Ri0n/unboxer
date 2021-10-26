@@ -26,6 +26,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <QtEndian>
 
+#include <cassert>
 #include <optional>
 
 namespace unboxer {
@@ -54,16 +55,28 @@ aligned(8) class Box (unsigned int(32) boxtype,
 
 class BoxReaderImpl {
 public:
+    struct Payload {
+        std::uint64_t size       = 0; // 0 - till the end
+        std::uint64_t fileOffset = 0; // parent box start offset from the beginning of the file/stream
+    };
+
+    BoxReaderImpl()
+    {
+        parents.push_back(Payload { 0, 0 }); // artifical root box
+    }
+
     Status feed(const QByteArray &data);
     Status close(Status reason);
 
     Status sendData();
 
-    std::optional<std::uint64_t> fullBoxSize; // if not set -> not enough data to parse size
+    std::list<Payload>           parents;
+    std::optional<std::uint64_t> fullBoxSize; // if not set -> not enough data to parse size. if 0 - till the end
+    std::uint64_t                boxPayloadBytesLeft = 0;
 
-    QByteArray    incompleteBox;           // a part of payload. could be somewhere in the middle of a box
-    int           parsingOffset       = 0; // from the start of incompleteBox
-    std::uint64_t boxPayloadBytesLeft = 0;
+    QByteArray    buffer; // a part of payload. could be somewhere in the middle of a box
+    int           bufferOffset = 0;
+    std::uint64_t fileOffset   = 0;
 
     BoxReader::BoxOpenedCallback boxOpenedCallback;
     BoxReader::BoxClosedCallback boxClosedCallback;
@@ -72,12 +85,15 @@ public:
 
 Status BoxReaderImpl::feed(const QByteArray &data)
 {
-    incompleteBox += data;
-    while (incompleteBox.size() - parsingOffset > 0) { // iterate over boxes
-        if (!fullBoxSize) {                            // either very beginning of a box or not enough data to parse
+    buffer += data;
+    while (buffer.size() - bufferOffset > 0) { // iterate over boxes
+        if (parents.empty()) {
+            return Corrupted; // got data after all boxes were closed including artifical root. broken file likely
+        }
+        if (!fullBoxSize) { // either very beginning of a box or not enough data to parse
             // C++20 span would work better here
-            char       *parseStart = incompleteBox.data() + parsingOffset;
-            std::size_t bytesLeft  = incompleteBox.size() - parsingOffset;
+            char       *parseStart = buffer.data() + bufferOffset;
+            std::size_t bytesLeft  = buffer.size() - bufferOffset;
 
             std::uint64_t payloadOffset = 0;
             if (bytesLeft < MINIMAL_HEADER_SZ) // size + type
@@ -109,10 +125,18 @@ Status BoxReaderImpl::feed(const QByteArray &data)
                 return Status::Corrupted;
             }
 
-            boxOpenedCallback(boxType, boxSize);
-            parsingOffset += payloadOffset;
-            fullBoxSize         = boxSize;
-            boxPayloadBytesLeft = boxSize ? boxSize - payloadOffset : 0;
+            bool needRecurse = boxOpenedCallback(boxType, boxSize, fileOffset);
+            bufferOffset += payloadOffset;
+            fileOffset += payloadOffset;
+            fullBoxSize  = boxSize;
+            auto &parent = parents.back();
+            boxPayloadBytesLeft
+                = boxSize ? boxSize - payloadOffset : (parent.size ? parent.fileOffset + parent.size - fileOffset : 0);
+            if (needRecurse) {
+                parents.emplace_back(Payload { boxPayloadBytesLeft, fileOffset });
+                fullBoxSize = std::nullopt;
+                continue;
+            }
         }
 
         auto status = sendData();
@@ -124,18 +148,28 @@ Status BoxReaderImpl::feed(const QByteArray &data)
         }
     }
     // we sent as much data as we could. drop beginning of the buffer
-    incompleteBox.remove(0, parsingOffset);
-    parsingOffset = 0;
+    buffer.remove(0, bufferOffset);
+    bufferOffset = 0;
     return Status::Ok;
 }
 
 Status BoxReaderImpl::close(Status reason)
 {
-    if (reason == Status::Eof && fullBoxSize) { // we have unfinished box on the end of the stream
-        if (*fullBoxSize) {                     // and its data wasn't consumed for some reason. looks wrong
+    if (reason == Status::Eof) {
+        if (*fullBoxSize) { // got unfinished box
             return Status::Corrupted;
-        } else {
-            boxClosedCallback();
+        }
+        while (!parents.empty()) {
+            auto &parent = parents.back();
+            if (parent.size) {
+                if (parent.fileOffset + parent.size != fileOffset) {
+                    return Status::Corrupted;
+                }
+            }
+            if (++parents.begin() != parents.end()) { // close all boxes but our artificial root
+                boxClosedCallback();
+            }
+            parents.pop_back();
         }
     }
     return reason;
@@ -143,15 +177,16 @@ Status BoxReaderImpl::close(Status reason)
 
 Status BoxReaderImpl::sendData()
 {
-    char       *parseStart = incompleteBox.data() + parsingOffset;
-    std::size_t bytesLeft  = incompleteBox.size() - parsingOffset;
+    char       *parseStart = buffer.data() + bufferOffset;
+    std::size_t bytesLeft  = buffer.size() - bufferOffset;
 
     // send data to callback (TODO we need the same on eof in case of zero size box)
-    auto sendSz = *fullBoxSize ? qMin(boxPayloadBytesLeft, std::uint64_t(bytesLeft)) : incompleteBox.size();
+    auto sendSz = *fullBoxSize ? qMin(boxPayloadBytesLeft, std::uint64_t(bytesLeft)) : buffer.size();
     if (sendSz) {
         auto status = dataReadCallback(QByteArray::fromRawData(parseStart, sendSz));
         if (status == Status::Ok) {
-            parsingOffset += sendSz;
+            bufferOffset += sendSz;
+            fileOffset += sendSz;
             boxPayloadBytesLeft -= sendSz;
         } else {
             return status;
@@ -161,6 +196,13 @@ Status BoxReaderImpl::sendData()
     if (*fullBoxSize && !boxPayloadBytesLeft) {
         fullBoxSize = std::nullopt; // mark as the start of the next box
         boxClosedCallback();
+        const auto &parent = parents.back();
+        if (parent.size && parent.fileOffset + parent.size == fileOffset) { // if read all the parent
+            if (++parents.begin() != parents.end()) {                       // close all boxes but our artificial root
+                boxClosedCallback();
+            }
+            parents.pop_back();
+        }
     }
     return Status::Ok;
 }

@@ -22,23 +22,24 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#pragma once
-
-#include <memory>
+#include "inputmemory_impl.h"
 
 namespace unboxer {
 
-template <class Impl> class Input {
-public:
-    template <class... Args> Input(Args &&...args) : impl(std::make_unique<Impl>(std::forward<Args>(args)...)) { }
-
-    void        open() { impl->open(); }
-    void        read(std::size_t size) { impl->read(size); }
-    void        reset() { impl->reset(); }
-    std::size_t bytesAvailable() const { return impl->bytesAvailable(); }
-
-private:
-    std::unique_ptr<Impl> impl;
-};
-
+void InputMemoryImpl::read(std::size_t size)
+{
+    if (data.size() - offset > size) {
+        dataReadCallback(QByteArray::fromRawData(data.data() + offset, size));
+        offset += size;
+    } else {
+        dataReadCallback(QByteArray::fromRawData(data.data() + offset, data.size() - offset));
+        offset = data.size();
+    }
+    if (offset == std::size_t(data.size())) {
+        closedCallback(Status::Eof);
+    } else {
+        dataReadyCallback();
+    }
 }
+
+} // namespace unboxer

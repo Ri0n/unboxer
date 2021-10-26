@@ -40,9 +40,10 @@ class NullSource {
     std::function<void(Status)> closedCallback;
 
 public:
-    template <typename OpenedCB, typename DataReadCB, typename ClosedCB>
+    template <typename OpenedCB, typename DataReadyCB, typename DataReadCB, typename ClosedCB>
     NullSource([[maybe_unused]] const std::string &uri,
                OpenedCB                          &&openedCallback,
+               [[maybe_unused]] DataReadyCB      &&dataReadyCallback,
                [[maybe_unused]] DataReadCB       &&dataReadCallback,
                ClosedCB                          &&closedCallback)
     {
@@ -64,9 +65,10 @@ public:
 
 template <class InputImpl, class CacherImpl> class InputStreamer {
 public:
-    using OpenedCallback   = std::function<void()>;
-    using DataReadCallback = std::function<Status(const QByteArray &)>;
-    using ClosedCallback   = std::function<void(Status)>;
+    using OpenedCallback    = std::function<void()>;
+    using DataReadCallback  = std::function<Status(const QByteArray &)>;
+    using ClosedCallback    = std::function<void(Status)>;
+    using DataReadyCallback = std::function<void()>;
 
     InputStreamer(const std::string &inputUri,
                   OpenedCallback   &&openedCallback,
@@ -74,6 +76,7 @@ public:
                   ClosedCallback   &&closedCallback) :
         source(inputUri,
                std::bind(&InputStreamer::onStreamOpened, this),
+               std::bind(&InputStreamer::onDataReady, this),
                std::bind(&InputStreamer::onDataRead, this, std::placeholders::_1),
                std::bind(&InputStreamer::onStreamClosed, this, std::placeholders::_1)),
         openedCallback(std::move(openedCallback)), dataReadCallback(std::move(dataReadCallback)),
@@ -81,11 +84,19 @@ public:
     {
     }
 
-    void open() { source.open(); }
-    void read(std::size_t size) { source.read(size); }
+    void        open() { source.open(); }
+    void        read(std::size_t size) { source.read(size); }
+    void        setDataReadyCallback(DataReadyCallback &&callback) { dataReadyCallback = std::move(callback); }
+    std::size_t bytesAvailable() const { return source.bytesAvailable(); }
 
 private:
     void onStreamOpened() { openedCallback(); }
+    void onDataReady()
+    {
+        if (dataReadyCallback) {
+            dataReadyCallback();
+        }
+    }
     void onDataRead(const QByteArray &data)
     {
         if (dataReadCallback(data) != Status::Ok) {
@@ -100,9 +111,10 @@ private:
     Input<InputImpl>   source;
     Cacher<CacherImpl> cacher;
 
-    OpenedCallback   openedCallback;
-    DataReadCallback dataReadCallback;
-    ClosedCallback   closedCallback;
+    OpenedCallback    openedCallback;
+    DataReadCallback  dataReadCallback;
+    ClosedCallback    closedCallback;
+    DataReadyCallback dataReadyCallback;
 };
 
 }

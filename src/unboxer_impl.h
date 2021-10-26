@@ -37,38 +37,28 @@ namespace unboxer {
 
 class UNBOXER_EXPORT UnboxerImpl {
 public:
-    using StreamOpenedCallback = std::function<void()>;
-    using NewBoxCallback       = std::function<void(Box::Ptr)>;
+    using StreamOpenedCallback = std::function<void(Box::Ptr)>;
     using StreamClosedCallback = std::function<void(Status)>;
 
-    UnboxerImpl(StreamOpenedCallback &&streamOpenedCallback, StreamClosedCallback &&streamClosedCallback) :
-        streamOpenedCallback(std::move(streamOpenedCallback)), streamClosedCallback(std::move(streamClosedCallback))
-    {
-    }
+    UnboxerImpl();
 
-    Box::Ptr rootBox() const { return readers.empty() ? Box::Ptr {} : readers.front().box; }
+    Box::Ptr rootBox() const { return boxes.empty() ? Box::Ptr {} : boxes.front(); }
 
     // streaming
     void   onStreamOpened();
+    Status onStreamDataRead(const QByteArray &data);
     void   onStreamClosed(Status reason);
-    Status onDataRead(const QByteArray &data);
 
-private:
     // unboxing
-    void onBoxOpened(const QByteArray &type, std::uint64_t size);
-    void onBoxClosed();
+    bool   onBoxOpened(const QByteArray &type, std::uint64_t size, std::uint64_t fileOffset);
+    Status onDataRead(const QByteArray &data);
+    void   onBoxClosed();
 
     StreamOpenedCallback streamOpenedCallback;
     StreamClosedCallback streamClosedCallback;
 
-    struct BoxItem {
-        inline BoxItem(BoxReader &&reader, Box::Ptr &&box) : reader(std::move(reader)), box(std::move(box)) { }
-
-        BoxReader reader;
-        Box::Ptr  box;
-    };
-
-    std::list<BoxItem> readers;
+    BoxReader           reader;
+    std::list<Box::Ptr> boxes;
 };
 
 } // namespace unboxer

@@ -26,6 +26,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <memory>
 
+// TODO the idea was to cache network resources on disk.
+// but apprently there is not enough time to implement all the desired stuff
+
 namespace unboxer {
 
 template <class CacherImpl> class Cacher {

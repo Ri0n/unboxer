@@ -24,53 +24,48 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
 
-#include "boxreader.h"
-#include "inputstreamer.h"
 #include "status.h"
 #include "unboxer_export.h"
-#include "unboxer_impl.h"
 
-#include <QObject>
+#include <QFile>
 
-#include <variant>
+#include <functional>
+#include <memory>
+#include <string>
 
 namespace unboxer {
 
-template <class Source, class Cache> class Unboxer {
+class UNBOXER_EXPORT InputFileImpl : public QObject {
+    Q_OBJECT
 public:
-    using StreamType = InputStreamer<Source, Cache>;
+    std::string                             fileName;
+    std::function<void()>                   openedCallback;
+    std::function<void()>                   dataReadyCallback;
+    std::function<void(const QByteArray &)> dataReadCallback;
+    std::function<void(Status)>             closedCallback;
 
-    Unboxer(const std::string &uri) :
-        impl(std::make_unique<UnboxerImpl>()),
-        stream_(uri,
-                std::bind(&UnboxerImpl::onStreamOpened, impl.get()),
-                std::bind(&UnboxerImpl::onStreamDataRead, impl.get(), std::placeholders::_1),
-                std::bind(&UnboxerImpl::onStreamClosed, impl.get(), std::placeholders::_1))
+    QFile  file;
+    qint64 needToRead = 0;
 
+public:
+    template <typename OpenedCB, typename DataReadyCB, typename DataReadCB, typename ClosedCB>
+    InputFileImpl(const std::string &fileName,
+                  OpenedCB         &&openedCallback,
+                  DataReadyCB      &&dataReadyCallback,
+                  DataReadCB       &&dataReadCallback,
+                  ClosedCB         &&closedCallback) :
+        fileName(fileName),
+        openedCallback(std::move(openedCallback)), dataReadyCallback(std::move(dataReadyCallback)),
+        dataReadCallback(std::move(dataReadCallback)), closedCallback(std::move(closedCallback))
     {
     }
-
-    Unboxer(Unboxer &&other)      = delete;
-    Unboxer(const Unboxer &other) = delete;
-
-    void setStreamOpenedCallback(UnboxerImpl::StreamOpenedCallback &&callback)
-    {
-        impl->streamOpenedCallback = std::move(callback);
-    }
-    void setStreamClosedCallback(UnboxerImpl::StreamClosedCallback &&callback)
-    {
-        impl->streamClosedCallback = std::move(callback);
-    }
-
-    Box::Ptr    rootBox() const { return impl->rootBox(); }
-    void        open() { stream_.open(); }
-    void        read(std::size_t size) { stream_.read(size); }
-    StreamType &stream() { return stream_; }
+    void        open();
+    void        read(std::size_t size);
+    void        reset();
+    std::size_t bytesAvailable() const { return file.isOpen() ? file.size() - file.pos() : 0; }
 
 private:
-private:
-    std::unique_ptr<UnboxerImpl> impl;
-    StreamType                   stream_;
+    void tryRead();
 };
 
-}
+} // namespace unboxer

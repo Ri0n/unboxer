@@ -39,14 +39,19 @@ class Box {
 public:
     using Ptr = std::shared_ptr<Box>;
 
-    inline Box(bool isContainer = false, QByteArray type = QByteArray(), std::uint64_t size = 0) :
-        isContainer(isContainer), type(type), size(size)
+    inline Box(bool          isContainer = false,
+               QByteArray    type        = QByteArray(),
+               std::uint64_t size        = 0,
+               std::uint64_t fileOffset  = 0) :
+        isContainer(isContainer),
+        type(type), size(size), fileOffset(fileOffset)
     {
     }
 
-    bool                         isContainer = false;
-    QByteArray                   type;
-    std::optional<std::uint64_t> size; // full size
+    bool          isContainer = false;
+    QByteArray    type;
+    std::uint64_t size; // full size. 0 - all remaining
+    std::uint64_t fileOffset;
 
     // callbacks to be set by a library user
     std::function<void(Box::Ptr)>             onSubBoxOpen;

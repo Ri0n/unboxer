@@ -27,38 +27,48 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "status.h"
 #include "unboxer_export.h"
 
-#include <QByteArray>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QPointer>
 
 #include <functional>
+#include <memory>
+#include <string>
 
 namespace unboxer {
 
-class UNBOXER_EXPORT InputMemoryImpl {
+class UNBOXER_EXPORT InputHttpImpl : public QObject {
+    Q_OBJECT
+public:
+    std::string                             url;
     std::function<void()>                   openedCallback;
+    std::function<void()>                   dataReadyCallback;
     std::function<void(const QByteArray &)> dataReadCallback;
     std::function<void(Status)>             closedCallback;
 
-    std::size_t offset = 0;
-    QByteArray  data;
+    QNetworkAccessManager          nam;
+    std::unique_ptr<QNetworkReply> reply;
+    qint64                         needToRead = 0;
 
 public:
-    template <typename OpenedCB, typename DataReadCB, typename ClosedCB>
-    InputMemoryImpl(const std::string &base64data,
-                    OpenedCB         &&openedCallback,
-                    DataReadCB       &&dataReadCallback,
-                    ClosedCB         &&closedCallback) :
-        openedCallback(std::move(openedCallback)),
-        dataReadCallback(std::move(dataReadCallback)), closedCallback(std::move(closedCallback)),
-        data(QByteArray::fromBase64(QByteArray::fromRawData(base64data.data(), base64data.size())))
+    template <typename OpenedCB, typename DataReadyCB, typename DataReadCB, typename ClosedCB>
+    InputHttpImpl(const std::string &url,
+                  OpenedCB         &&openedCallback,
+                  DataReadyCB      &&dataReadyCallback,
+                  DataReadCB       &&dataReadCallback,
+                  ClosedCB         &&closedCallback) :
+        url(url),
+        openedCallback(std::move(openedCallback)), dataReadyCallback(std::move(dataReadyCallback)),
+        dataReadCallback(std::move(dataReadCallback)), closedCallback(std::move(closedCallback))
     {
     }
-    void open() { openedCallback(); }
-    void read(std::size_t size);
-    void reset()
-    {
-        data.clear();
-        offset = 0;
-    }
+    void        open();
+    void        read(std::size_t size);
+    void        reset();
+    std::size_t bytesAvailable() const { return (reply && reply->isOpen()) ? reply->bytesAvailable() : 0; }
+
+private:
+    void tryRead();
 };
 
 } // namespace unboxer

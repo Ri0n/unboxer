@@ -24,7 +24,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <QTest>
 
-#include "inputmemoryimpl.h"
+#include "inputmemory_impl.h"
 #include "inputstreamer.h"
 #include "status.h"
 #include "unboxer.h"
@@ -36,19 +36,21 @@ class MemStreamerTest : public QObject {
     Q_OBJECT
 
     std::unique_ptr<MemStreamer> streamer;
-    bool                         gotOpened   = false;
-    bool                         gotDataRead = false;
-    bool                         gotClosed   = false;
+    bool                         gotOpened    = false;
+    bool                         gotDataRead  = false;
+    bool                         gotClosed    = false;
+    bool                         gotDataReady = false;
     QByteArray                   data;
 
 private slots:
 
     void init()
     {
-        data        = QByteArray();
-        gotOpened   = false;
-        gotDataRead = false;
-        gotClosed   = false;
+        data         = QByteArray();
+        gotOpened    = false;
+        gotDataRead  = false;
+        gotClosed    = false;
+        gotDataReady = false;
 
         streamer = std::make_unique<MemStreamer>(
             "SGVsbG8gV29ybGQ=",
@@ -59,6 +61,7 @@ private slots:
                 return Status::Ok;
             },
             [&](Status) mutable { gotClosed = true; });
+        streamer->setDataReadyCallback([&]() mutable { gotDataReady = true; });
     }
 
     void openTest()
@@ -66,6 +69,7 @@ private slots:
         streamer->open(); // will trigger opened immediatelly
         QCOMPARE(gotOpened, true);
         QCOMPARE(gotDataRead, false);
+        QCOMPARE(gotDataReady, true);
         QCOMPARE(gotClosed, false);
         QCOMPARE(data, QByteArray());
     }
@@ -76,6 +80,7 @@ private slots:
         streamer->read(5);
         QCOMPARE(gotOpened, true);
         QCOMPARE(gotDataRead, true);
+        QCOMPARE(gotDataReady, true);
         QCOMPARE(gotClosed, false);
         QCOMPARE(data, QByteArray("Hello", 5));
         streamer->read(6);

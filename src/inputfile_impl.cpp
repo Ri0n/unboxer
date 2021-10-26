@@ -22,8 +22,39 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "unboxer_export.h"
+#include "inputfile_impl.h"
 
-#include <iostream>
+#include <QUrl>
 
-UNBOXER_EXPORT void dummy_lib_fun() { std::cout << "Hello world!\n"; }
+namespace unboxer {
+
+void InputFileImpl::open()
+{
+    file.setFileName(QString::fromStdString(fileName));
+    if (!file.open(QIODevice::ReadOnly)) {
+        closedCallback(Status::SourceNotExist); // well yes. this could be multiple of other reasons
+        return;
+    }
+    openedCallback();
+}
+
+void InputFileImpl::read(std::size_t size)
+{
+    auto data = file.read(size);
+    if (data.isEmpty()) {
+        if (file.atEnd()) {
+            closedCallback(Status::Eof);
+        } else {
+            closedCallback(Status::Corrupted);
+        }
+    } else {
+        dataReadCallback(data);
+        if (!file.atEnd()) {
+            dataReadyCallback();
+        }
+    }
+}
+
+void InputFileImpl::reset() { file.close(); }
+
+} // namespace unboxer

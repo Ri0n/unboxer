@@ -24,7 +24,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <QTest>
 
-#include "inputmemoryimpl.h"
+#include "inputmemory_impl.h"
 #include "inputstreamer.h"
 #include "status.h"
 #include "unboxer.h"
@@ -36,11 +36,12 @@ class MemUnboxerTest : public QObject {
     Q_OBJECT
 
     std::unique_ptr<MemUnboxer> unboxer;
-    bool                        gotStreamOpened   = false;
-    bool                        gotDataRead       = false;
-    bool                        gotSubBox         = false;
-    bool                        gotStreamClosed   = false;
-    Status                      streamCloseStatus = Status::Ok;
+    bool                        gotStreamOpened    = false;
+    bool                        gotDataRead        = false;
+    bool                        gotSubBox          = false;
+    bool                        gotStreamClosed    = false;
+    bool                        gotStreamDataReady = false;
+    Status                      streamCloseStatus  = Status::Ok;
 
     void setupBox(Box::Ptr box)
     {
@@ -56,11 +57,12 @@ private slots:
 
     void init()
     {
-        gotStreamOpened          = false;
-        gotDataRead              = false;
-        gotSubBox                = false;
-        gotStreamClosed          = false;
-        Status streamCloseStatus = Status::Ok;
+        gotStreamOpened    = false;
+        gotDataRead        = false;
+        gotSubBox          = false;
+        gotStreamClosed    = false;
+        gotStreamDataReady = false;
+        streamCloseStatus  = Status::Ok;
 
         // let's parse first 256 bytes of the demo file
         unboxer = std::make_unique<MemUnboxer>(
@@ -68,15 +70,16 @@ private slots:
             "AAAUdHJ1bgAAAAEAAAABAAAAgAAAACx1dWlkbR2bBULVROaA4hQdr/dXsgEAAAAAADCvZXt2AAAA"
             "AAABMS0AAAAAPXV1aWTUgH7yyjlGlY5UJsueRqefAQAAAAIAADCvZqyjAAAAAAABMS0AAAAwr2fd"
             "0AAAAAAAATEtAAAARfRtZGF0PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz48"
-            "dHQgeG1sOmxhbmc9InNwYSIgeG1sbnM9Imh0dA==",
-            [&]() mutable {
-                gotStreamOpened = true;
-                setupBox(unboxer->rootBox());
-            },
-            [&](Status status) mutable {
-                streamCloseStatus = status;
-                gotStreamClosed   = true;
-            });
+            "dHQgeG1sOmxhbmc9InNwYSIgeG1sbnM9Imh0dA==");
+        unboxer->setStreamOpenedCallback([this](Box::Ptr root) mutable {
+            gotStreamOpened = true;
+            setupBox(root);
+        });
+        unboxer->setStreamClosedCallback([this](Status status) mutable {
+            streamCloseStatus = status;
+            gotStreamClosed   = true;
+        });
+        unboxer->stream().setDataReadyCallback([&]() mutable { gotStreamDataReady = true; });
     }
 
     void openTest()

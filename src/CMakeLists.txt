@@ -37,21 +37,24 @@ set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 set(CMAKE_VISIBILITY_INLINES_HIDDEN YES)
 
 set(SOURCES
-    unboxer.cpp
+    unboxer_impl.cpp
+    boxreader.cpp
+    inputmemory_impl.cpp
+    inputhttp_impl.cpp
+    inputfile_impl.cpp
     )
 set(HEADERS
     status.h
     box.h
     unboxer.h
     unboxer_impl.h
-    unboxer_impl.cpp
-    input.h
-    cacher.h
-    inputstreamer.h
-    inputmemoryimpl.h
-    inputmemoryimpl.cpp
     boxreader.h
-    boxreader.cpp
+    inputstreamer.h
+    cacher.h
+    input.h
+    inputmemory_impl.h
+    inputhttp_impl.h
+    inputfile_impl.h
     )
 
 
