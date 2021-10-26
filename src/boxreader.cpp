@@ -196,12 +196,16 @@ Status BoxReaderImpl::sendData()
     if (*fullBoxSize && !boxPayloadBytesLeft) {
         fullBoxSize = std::nullopt; // mark as the start of the next box
         boxClosedCallback();
-        const auto &parent = parents.back();
-        if (parent.size && parent.fileOffset + parent.size == fileOffset) { // if read all the parent
-            if (++parents.begin() != parents.end()) {                       // close all boxes but our artificial root
-                boxClosedCallback();
+        while (!parents.empty()) {
+            const auto &parent = parents.back();
+            if (parent.size && parent.fileOffset + parent.size == fileOffset) { // if read all the parent
+                if (++parents.begin() != parents.end()) { // close all boxes but our artificial root
+                    boxClosedCallback();
+                }
+                parents.pop_back();
+            } else {
+                break;
             }
-            parents.pop_back();
         }
     }
     return Status::Ok;

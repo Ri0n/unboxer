@@ -51,6 +51,8 @@ void InputFileImpl::read(std::size_t size)
         dataReadCallback(data);
         if (!file.atEnd()) {
             dataReadyCallback();
+        } else {
+            closedCallback(Status::Eof);
         }
     }
 }

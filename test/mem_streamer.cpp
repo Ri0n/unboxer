@@ -69,7 +69,7 @@ private slots:
         streamer->open(); // will trigger opened immediatelly
         QCOMPARE(gotOpened, true);
         QCOMPARE(gotDataRead, false);
-        QCOMPARE(gotDataReady, true);
+        QCOMPARE(gotDataReady, false);
         QCOMPARE(gotClosed, false);
         QCOMPARE(data, QByteArray());
     }
