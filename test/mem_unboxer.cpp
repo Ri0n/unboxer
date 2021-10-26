@@ -26,7 +26,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "inputmemoryimpl.h"
 #include "inputstreamer.h"
-#include "reason.h"
+#include "status.h"
 #include "unboxer.h"
 
 using namespace unboxer;
@@ -36,17 +36,31 @@ class MemUnboxerTest : public QObject {
     Q_OBJECT
 
     std::unique_ptr<MemUnboxer> unboxer;
-    bool                        gotStreamOpened = false;
-    bool                        gotDataRead     = false;
-    bool                        gotStreamClosed = false;
+    bool                        gotStreamOpened   = false;
+    bool                        gotDataRead       = false;
+    bool                        gotSubBox         = false;
+    bool                        gotStreamClosed   = false;
+    Status                      streamCloseStatus = Status::Ok;
+
+    void setupBox(Box::Ptr box)
+    {
+        gotSubBox         = true;
+        box->onSubBoxOpen = std::bind(&MemUnboxerTest::setupBox, this, std::placeholders::_1);
+        box->onDataRead   = [&](const QByteArray &) mutable {
+            gotDataRead = true;
+            return Status::Ok;
+        };
+    }
 
 private slots:
 
     void init()
     {
-        gotStreamOpened = false;
-        gotDataRead     = false;
-        gotStreamClosed = false;
+        gotStreamOpened          = false;
+        gotDataRead              = false;
+        gotSubBox                = false;
+        gotStreamClosed          = false;
+        Status streamCloseStatus = Status::Ok;
 
         // let's parse first 256 bytes of the demo file
         unboxer = std::make_unique<MemUnboxer>(
@@ -56,13 +70,13 @@ private slots:
             "0AAAAAAAATEtAAAARfRtZGF0PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz48"
             "dHQgeG1sOmxhbmc9InNwYSIgeG1sbnM9Imh0dA==",
             [&]() mutable {
-                gotStreamOpened                = true;
-                unboxer->rootBox()->onDataRead = [&](const QByteArray &) mutable {
-                    gotDataRead = true;
-                    return Reason::Ok;
-                };
+                gotStreamOpened = true;
+                setupBox(unboxer->rootBox());
             },
-            [&](Reason) mutable { gotStreamClosed = true; });
+            [&](Status status) mutable {
+                streamCloseStatus = status;
+                gotStreamClosed   = true;
+            });
     }
 
     void openTest()
@@ -80,6 +94,7 @@ private slots:
         QCOMPARE(gotStreamOpened, true);
         QCOMPARE(gotDataRead, true);
         QCOMPARE(gotStreamClosed, true);
+        QCOMPARE(streamCloseStatus, Status::Corrupted);
     }
 
     void cleanup() { unboxer.reset(); }

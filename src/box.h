@@ -24,17 +24,19 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
 
-#include "reason.h"
+#include "status.h"
 
 #include <QByteArray>
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <variant>
 
 namespace unboxer {
 
-struct Box {
+class Box {
+public:
     using Ptr = std::shared_ptr<Box>;
 
     inline Box(bool isContainer = false, QByteArray type = QByteArray(), std::uint64_t size = 0) :
@@ -42,14 +44,19 @@ struct Box {
     {
     }
 
-    bool          isContainer = false;
-    QByteArray    type;
-    std::uint64_t size; // full size
+    bool                         isContainer = false;
+    QByteArray                   type;
+    std::optional<std::uint64_t> size; // full size
 
     // callbacks to be set by a library user
     std::function<void(Box::Ptr)>             onSubBoxOpen;
-    std::function<Reason(const QByteArray &)> onDataRead;
-    std::function<void()>                     onClose;
+    std::function<Status(const QByteArray &)> onDataRead;
+    std::function<Status()>                   onClose;
+
+private:
+    friend class UnboxerImpl;
+    bool          isClosed_ = false;
+    std::uint64_t dataFed_  = 0;
 };
 
 }

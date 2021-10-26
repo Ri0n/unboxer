@@ -38,40 +38,95 @@ void UnboxerImpl::onStreamOpened()
     streamOpenedCallback();
 }
 
-void UnboxerImpl::onStreamClosed(Reason reason) { streamClosedCallback(reason); }
+void UnboxerImpl::onStreamClosed(Status reason)
+{
+    if (reason == Status::Eof) {
+        while (!readers.empty()) {
+            // check for incomplete boxes like one having explicit size but still requiring more data to close
+            auto box    = readers.back().box;
+            auto status = readers.back().reader.close(reason);
+            if (status != Status::Eof) { // only Eof or error statuses are expected
+                reason = status;
+                break;
+            }
+            if (box->isClosed_) {
+                continue; // we handled closed. So readers.back() has changed (see handler below)
+            }
+
+            // if box close wasn't handled by reader we need to close it explicitly
+            // and let the the library's client to decide how valid it is
+            box->isClosed_ = true;
+            if (box->onClose) {
+                auto status = box->onClose();
+                if (status != Status::Ok) {
+                    reason = status;
+                    break;
+                }
+            }
+            readers.pop_back();
+        }
+    }
+    readers.clear();
+    streamClosedCallback(reason);
+}
 
 void UnboxerImpl::onBoxOpened(const QByteArray &type, std::uint64_t size)
 {
     static QVector<QByteArray> containerBoxes { { "moof", "traf" } };
 
     auto parentBox = readers.back().box;
+    // we always create reader to unbox payload. but set flag isContainer only
+    // for known containers. The library's client may change this flag in onSubBoxOpen
+    // or just ignore it. So if flag is set there won't be onDataRead events from the box,
+    // or otherwise (if not set) there won't be onSubBoxOpen
     readers.emplace_back(
-        BoxReader(std::bind(&UnboxerImpl::onBoxOpened, this, std::placeholders::_1, std::placeholders::_2),
-                  std::bind(&UnboxerImpl::onBoxClosed, this),
-                  std::bind(&UnboxerImpl::onDataRead, this, std::placeholders::_1)),
+        BoxReader { std::bind(&UnboxerImpl::onBoxOpened, this, std::placeholders::_1, std::placeholders::_2),
+                    std::bind(&UnboxerImpl::onBoxClosed, this),
+                    std::bind(&UnboxerImpl::onDataRead, this, std::placeholders::_1) },
         std::make_shared<Box>(containerBoxes.contains(type), type, size));
     if (parentBox->onSubBoxOpen) {
         parentBox->onSubBoxOpen(readers.back().box);
     }
 }
 
-Reason UnboxerImpl::onDataRead(const QByteArray &data)
+Status UnboxerImpl::onDataRead(const QByteArray &data)
 {
-    if (readers.back().box->isContainer) {
-        return readers.back().reader.feed(data);
-    } else {
-        auto box = readers.back().box;
-        if (box && box->onDataRead) {
-            return box->onDataRead(data);
+    QByteArray remainder = data;
+    auto       status    = Status::Ok;
+    while (!remainder.isEmpty()) {
+        auto          box      = readers.back().box;
+        std::uint64_t toFeedSz = remainder.size();
+        if (box->size) {
+            toFeedSz = qMin(*box->size - box->dataFed_, toFeedSz);
         }
+        box->dataFed_ += toFeedSz;
+        if (box->isContainer) { // need to parse boxes insize payload
+            status = readers.back().reader.feed(remainder.left(toFeedSz));
+            if (status != Status::Ok) {
+                break;
+            }
+        } else { // if not then just send data to the client
+            if (box->type == "mdat") {
+                qDebug("got data from mdat");
+            }
+            if (box->onDataRead) {
+                status = box->onDataRead(remainder.left(toFeedSz));
+                if (status != Status::Ok) {
+                    break;
+                }
+            }
+        }
+        remainder.remove(0, toFeedSz);
     }
-    return Reason::Ok;
+    return status;
 }
 
 void UnboxerImpl::onBoxClosed()
 {
-    if (readers.back().box->onClose) {
-        readers.back().box->onClose();
+    auto box       = readers.back().box;
+    box->isClosed_ = true;
+    if (box->onClose) {
+        box->onClose();
     }
     readers.pop_back();
 }

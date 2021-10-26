@@ -24,7 +24,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
 
-#include "reason.h"
+#include "status.h"
+#include "unboxer_export.h"
 
 #include <QByteArray>
 
@@ -35,11 +36,11 @@ namespace unboxer {
 
 class BoxReaderImpl;
 
-class BoxReader {
+class UNBOXER_EXPORT BoxReader {
 public:
     using BoxOpenedCallback = std::function<void(const QByteArray &, std::uint64_t)>;
     using BoxClosedCallback = std::function<void()>;
-    using DataReadCallback  = std::function<Reason(const QByteArray &)>;
+    using DataReadCallback  = std::function<Status(const QByteArray &)>;
 
     BoxReader(BoxOpenedCallback &&boxOpened, BoxClosedCallback &&boxClosed, DataReadCallback &&dataRead);
     ~BoxReader();
@@ -50,16 +51,16 @@ public:
     /**
      * @brief feed fresh input data either from input stream or from another box
      * @param inputData
-     * @return In most cases Reason::Ok
+     * @return In most cases Status::Ok
      */
-    Reason feed(const QByteArray &inputData);
+    Status feed(const QByteArray &inputData);
 
     /**
      * @brief close the box by some reason (stream eof for example).
      * @param reason of closing
      * @return another reason if the box disagree with the close
      */
-    Reason close(Reason reason);
+    Status close(Status reason);
 
 private:
     std::unique_ptr<BoxReaderImpl> impl;

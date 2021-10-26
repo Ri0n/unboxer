@@ -25,7 +25,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <QTest>
 
 #include "inputstreamer.h"
-#include "reason.h"
+#include "status.h"
 #include "unboxer.h"
 
 using namespace unboxer;
@@ -35,17 +35,19 @@ class NullUnboxerTest : public QObject {
     Q_OBJECT
 
     std::unique_ptr<NullUnboxer> unboxer;
-    bool                         gotStreamOpened = false;
-    bool                         gotDataRead     = false;
-    bool                         gotStreamClosed = false;
+    bool                         gotStreamOpened   = false;
+    bool                         gotDataRead       = false;
+    bool                         gotStreamClosed   = false;
+    Status                       streamCloseStatus = Status::Ok;
 
 private slots:
 
     void init()
     {
-        gotStreamOpened = false;
-        gotDataRead     = false;
-        gotStreamClosed = false;
+        gotStreamOpened   = false;
+        gotDataRead       = false;
+        gotStreamClosed   = false;
+        streamCloseStatus = Status::Ok;
 
         unboxer = std::make_unique<NullUnboxer>(
             "file:///dev/null",
@@ -53,10 +55,13 @@ private slots:
                 gotStreamOpened                = true;
                 unboxer->rootBox()->onDataRead = [&](const QByteArray &) mutable {
                     gotDataRead = true;
-                    return Reason::Ok;
+                    return Status::Ok;
                 };
             },
-            [&](Reason) mutable { gotStreamClosed = true; });
+            [&](Status status) mutable {
+                streamCloseStatus = status;
+                gotStreamClosed   = true;
+            });
     }
 
     void openTest()
@@ -74,6 +79,7 @@ private slots:
         QCOMPARE(gotStreamOpened, true);
         QCOMPARE(gotDataRead, false);
         QCOMPARE(gotStreamClosed, true);
+        QCOMPARE(streamCloseStatus, Status::Ok);
     }
 
     void cleanup() { unboxer.reset(); }

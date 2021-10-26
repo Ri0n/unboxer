@@ -26,7 +26,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "cacher.h"
 #include "input.h"
-#include "reason.h"
+#include "status.h"
 
 #include <QByteArray>
 
@@ -36,8 +36,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 namespace unboxer {
 
 class NullSource {
-    std::function<void()>                openedCallback;
-    std::function<void(unboxer::Reason)> closedCallback;
+    std::function<void()>       openedCallback;
+    std::function<void(Status)> closedCallback;
 
 public:
     template <typename OpenedCB, typename DataReadCB, typename ClosedCB>
@@ -50,7 +50,7 @@ public:
         this->closedCallback = std::move(closedCallback);
     }
     void open() { openedCallback(); }
-    void read([[maybe_unused]] std::size_t size) { closedCallback(unboxer::Reason::Ok); };
+    void read([[maybe_unused]] std::size_t size) { closedCallback(Status::Ok); };
     void reset() { }
 };
 
@@ -65,8 +65,8 @@ public:
 template <class InputImpl, class CacherImpl> class InputStreamer {
 public:
     using OpenedCallback   = std::function<void()>;
-    using DataReadCallback = std::function<Reason(const QByteArray &)>;
-    using ClosedCallback   = std::function<void(Reason)>;
+    using DataReadCallback = std::function<Status(const QByteArray &)>;
+    using ClosedCallback   = std::function<void(Status)>;
 
     InputStreamer(const std::string &inputUri,
                   OpenedCallback   &&openedCallback,
@@ -88,13 +88,13 @@ private:
     void onStreamOpened() { openedCallback(); }
     void onDataRead(const QByteArray &data)
     {
-        if (dataReadCallback(data) != Reason::Ok) {
+        if (dataReadCallback(data) != Status::Ok) {
             source.reset();
             cacher.reset();
-            closedCallback(Reason::Corrupted);
+            closedCallback(Status::Corrupted);
         }
     }
-    void onStreamClosed(Reason reason) { closedCallback(reason); }
+    void onStreamClosed(Status reason) { closedCallback(reason); }
 
 private:
     Input<InputImpl>   source;

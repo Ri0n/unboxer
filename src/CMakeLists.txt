@@ -40,7 +40,7 @@ set(SOURCES
     unboxer.cpp
     )
 set(HEADERS
-    reason.h
+    status.h
     box.h
     unboxer.h
     unboxer_impl.h

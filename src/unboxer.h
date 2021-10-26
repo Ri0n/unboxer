@@ -26,7 +26,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "boxreader.h"
 #include "inputstreamer.h"
-#include "reason.h"
+#include "status.h"
 #include "unboxer_export.h"
 #include "unboxer_impl.h"
 

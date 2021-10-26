@@ -26,7 +26,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "box.h"
 #include "boxreader.h"
-#include "reason.h"
+#include "status.h"
 #include "unboxer_export.h"
 
 #include <list>
@@ -39,7 +39,7 @@ class UNBOXER_EXPORT UnboxerImpl {
 public:
     using StreamOpenedCallback = std::function<void()>;
     using NewBoxCallback       = std::function<void(Box::Ptr)>;
-    using StreamClosedCallback = std::function<void(Reason)>;
+    using StreamClosedCallback = std::function<void(Status)>;
 
     UnboxerImpl(StreamOpenedCallback &&streamOpenedCallback, StreamClosedCallback &&streamClosedCallback) :
         streamOpenedCallback(std::move(streamOpenedCallback)), streamClosedCallback(std::move(streamClosedCallback))
@@ -50,8 +50,8 @@ public:
 
     // streaming
     void   onStreamOpened();
-    void   onStreamClosed(Reason reason);
-    Reason onDataRead(const QByteArray &data);
+    void   onStreamClosed(Status reason);
+    Status onDataRead(const QByteArray &data);
 
 private:
     // unboxing

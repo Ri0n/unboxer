@@ -54,10 +54,10 @@ aligned(8) class Box (unsigned int(32) boxtype,
 
 class BoxReaderImpl {
 public:
-    Reason feed(const QByteArray &data);
-    Reason close(Reason reason);
+    Status feed(const QByteArray &data);
+    Status close(Status reason);
 
-    Reason sendData();
+    Status sendData();
 
     std::optional<std::uint64_t> fullBoxSize; // if not set -> not enough data to parse size
 
@@ -70,7 +70,7 @@ public:
     BoxReader::DataReadCallback  dataReadCallback;
 };
 
-Reason BoxReaderImpl::feed(const QByteArray &data)
+Status BoxReaderImpl::feed(const QByteArray &data)
 {
     incompleteBox += data;
     while (incompleteBox.size() - parsingOffset > 0) { // iterate over boxes
@@ -106,7 +106,7 @@ Reason BoxReaderImpl::feed(const QByteArray &data)
             if (boxSize > MAX_BOX_SIZE || (hasExtendedSize && boxSize < payloadOffset)
                 || (!hasExtendedSize && boxSize > 0 && boxSize < payloadOffset)) { // size 0 - is all remaining
                 // looks like something invalid
-                return Reason::Corrupted;
+                return Status::Corrupted;
             }
 
             boxOpenedCallback(boxType, boxSize);
@@ -116,24 +116,24 @@ Reason BoxReaderImpl::feed(const QByteArray &data)
         }
 
         auto status = sendData();
-        if (status == Reason::NeedMoreData) {
+        if (status == Status::NeedMoreData) {
             break;
         }
-        if (status != Reason::Ok) {
-            return Reason::Corrupted;
+        if (status != Status::Ok) {
+            return Status::Corrupted;
         }
     }
     // we sent as much data as we could. drop beginning of the buffer
     incompleteBox.remove(0, parsingOffset);
     parsingOffset = 0;
-    return Reason::Ok;
+    return Status::Ok;
 }
 
-Reason BoxReaderImpl::close(Reason reason)
+Status BoxReaderImpl::close(Status reason)
 {
-    if (reason == Reason::Eof && fullBoxSize) { // we have unfinished box on the end of the stream
+    if (reason == Status::Eof && fullBoxSize) { // we have unfinished box on the end of the stream
         if (*fullBoxSize) {                     // and its data wasn't consumed for some reason. looks wrong
-            return Reason::Corrupted;
+            return Status::Corrupted;
         } else {
             boxClosedCallback();
         }
@@ -141,7 +141,7 @@ Reason BoxReaderImpl::close(Reason reason)
     return reason;
 }
 
-Reason BoxReaderImpl::sendData()
+Status BoxReaderImpl::sendData()
 {
     char       *parseStart = incompleteBox.data() + parsingOffset;
     std::size_t bytesLeft  = incompleteBox.size() - parsingOffset;
@@ -150,7 +150,7 @@ Reason BoxReaderImpl::sendData()
     auto sendSz = *fullBoxSize ? qMin(boxPayloadBytesLeft, std::uint64_t(bytesLeft)) : incompleteBox.size();
     if (sendSz) {
         auto status = dataReadCallback(QByteArray::fromRawData(parseStart, sendSz));
-        if (status == Reason::Ok) {
+        if (status == Status::Ok) {
             parsingOffset += sendSz;
             boxPayloadBytesLeft -= sendSz;
         } else {
@@ -162,7 +162,7 @@ Reason BoxReaderImpl::sendData()
         fullBoxSize = std::nullopt; // mark as the start of the next box
         boxClosedCallback();
     }
-    return Reason::Ok;
+    return Status::Ok;
 }
 
 BoxReader::BoxReader(BoxOpenedCallback &&boxOpened, BoxClosedCallback &&boxClosed, DataReadCallback &&dataRead) :
@@ -178,8 +178,8 @@ BoxReader::BoxReader(BoxReader &&other) { impl = std::move(other.impl); }
 
 BoxReader::~BoxReader() { } // just to know how to destroy impl
 
-Reason BoxReader::feed(const QByteArray &inputData) { return impl->feed(inputData); }
+Status BoxReader::feed(const QByteArray &inputData) { return impl->feed(inputData); }
 
-Reason BoxReader::close(Reason reason) { return impl->close(reason); }
+Status BoxReader::close(Status reason) { return impl->close(reason); }
 
 } // namespace unboxer

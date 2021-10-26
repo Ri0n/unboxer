@@ -26,7 +26,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "inputmemoryimpl.h"
 #include "inputstreamer.h"
-#include "reason.h"
+#include "status.h"
 #include "unboxer.h"
 
 using namespace unboxer;
@@ -56,9 +56,9 @@ private slots:
             [&](const QByteArray &data) mutable {
                 gotDataRead = true;
                 this->data  = data;
-                return Reason::Ok;
+                return Status::Ok;
             },
-            [&](unboxer::Reason) mutable { gotClosed = true; });
+            [&](Status) mutable { gotClosed = true; });
     }
 
     void openTest()

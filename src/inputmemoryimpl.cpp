@@ -36,7 +36,7 @@ void InputMemoryImpl::read(std::size_t size)
         offset = data.size();
     }
     if (offset == std::size_t(data.size())) {
-        closedCallback(unboxer::Reason::Ok);
+        closedCallback(Status::Eof);
     }
 }
 
