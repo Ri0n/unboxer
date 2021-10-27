@@ -29,7 +29,7 @@ mkdir -p build && cd build && cmake .. && cmake --build .
 
 ## Starting up
 
-One can you the built by default application in the `./tools` directory.
+Check `./tools` directory for a demo app.  Try `--help` too. By default it won't try to get data from HTTP. Instead it's possible to start it with `mp4crawler -u https://demo.castlabs.com/tmp/text0.mp4`. Or it's possible to download `text0.mp4` into the current directory and just start the app (or point to the file with `-u /path/to/text0.mp4`).
 
 ## Design and usage
 
