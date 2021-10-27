@@ -49,6 +49,7 @@ public:
     QNetworkAccessManager          nam;
     std::unique_ptr<QNetworkReply> reply;
     qint64                         needToRead = 0;
+    bool                           closed     = false;
 
 public:
     template <typename OpenedCB, typename DataReadyCB, typename DataReadCB, typename ClosedCB>
@@ -69,6 +70,7 @@ public:
 
 private:
     void tryRead();
+    void tryReportClose();
 };
 
 } // namespace unboxer

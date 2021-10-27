@@ -48,10 +48,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <inttypes.h>
 
 using namespace unboxer;
-using FileUnboxer         = unboxer::Unboxer<InputFileImpl, NullCache>;
-using HttpUnboxer         = unboxer::Unboxer<InputHttpImpl, NullCache>;
-int           spaces      = 0;
-MdatRegistry *boxRegistry = nullptr;
+using FileUnboxer           = unboxer::Unboxer<InputFileImpl, NullCache>;
+using HttpUnboxer           = unboxer::Unboxer<InputHttpImpl, NullCache>;
+int           spaces        = 0;
+MdatRegistry *boxRegistry   = nullptr;
+bool          verboseOutput = false;
 
 void setupBox(Box::Ptr box)
 {
@@ -70,9 +71,11 @@ void setupBox(Box::Ptr box)
         return Status::Ok;
     };
     box->onDataRead = [weakBox = std::weak_ptr<Box>(box)](const QByteArray &data) mutable {
-        std::stringstream ss;
-        ss << QString(spaces + 2, ' ').toStdString() << data.data();
-        // std::cout << ss.str() << std::endl;
+        if (verboseOutput) {
+            std::stringstream ss;
+            ss << QString(spaces + 2, ' ').toStdString() << data.data();
+            std::cout << ss.str() << std::endl;
+        }
         boxRegistry->addBoxData(weakBox.lock(), data);
         return Status::Ok;
     };
@@ -130,7 +133,13 @@ std::unique_ptr<SpecificUnboxer> makeUnboxer(const QString &uri, std::size_t rea
     });
     unboxer->setStreamClosedCallback([](Status status) mutable {
         // let app start before exit
-        QTimer::singleShot(0, QCoreApplication::instance(), [status]() { QCoreApplication::exit(int(status)); });
+        QTimer::singleShot(0, QCoreApplication::instance(), [status]() {
+            int ret = int(status);
+            if (status == Status::Eof) {
+                ret = 0;
+            }
+            QCoreApplication::exit(ret);
+        });
     });
     unboxer->stream().setDataReadyCallback([unboxer = unboxer.get(), readSize]() mutable { unboxer->read(readSize); });
     unboxer->open();
@@ -153,9 +162,12 @@ int main(int argc, char *argv[])
                                  "URI to open (local file if given w/o scheme)",
                                  "uri",
                                  "text0.mp4");
+    QCommandLineOption verboseOption("verbose", "Enable verbose output (together with data blobs)");
     parser.addOption(uriOption);
+    parser.addOption(verboseOption);
     parser.process(app);
-    QString uri = parser.value(uriOption);
+    QString uri   = parser.value(uriOption);
+    verboseOutput = parser.isSet(verboseOption);
 
     auto    url = QUrl::fromUserInput(uri, "", QUrl::AssumeLocalFile);
     QString registryTemplate;

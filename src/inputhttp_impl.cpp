@@ -33,6 +33,7 @@ void InputHttpImpl::open()
     reply.reset(nam.get(QNetworkRequest(QUrl(QString::fromStdString(url)))));
     connect(reply.get(), &QNetworkReply::metaDataChanged, this, [&]() { openedCallback(); });
     connect(reply.get(), &QNetworkReply::readyRead, this, &InputHttpImpl::tryRead);
+    connect(reply.get(), &QNetworkReply::finished, this, [this]() { tryReportClose(); });
 }
 
 void InputHttpImpl::read(std::size_t size)
@@ -52,23 +53,36 @@ void InputHttpImpl::tryRead()
             needToRead -= data.size();
             dataReadCallback(data);
         }
-        if (!reply->bytesAvailable() && reply->isFinished()) {
-            auto status = Status::Ok;
-            switch (reply->error()) {
-            case QNetworkReply::NoError:
-                status = Status::Eof;
-                break;
-            case QNetworkReply::TimeoutError:
-                status = Status::Timeout;
-                break;
-            default:
-                status = Status::Corrupted;
-                break;
-            }
-            closedCallback(status);
+        if (!reply->bytesAvailable() && !reply->isRunning()) {
+
+            tryReportClose();
         } else if (reply->bytesAvailable()) {
             dataReadyCallback();
         }
+    }
+}
+
+void InputHttpImpl::tryReportClose()
+{
+    if (closed) {
+        return;
+    }
+    if (reply && !reply->bytesAvailable() && reply->isFinished()) {
+        auto status = Status::Ok;
+        switch (reply->error()) {
+        case QNetworkReply::NoError:
+            status = Status::Eof;
+            break;
+        case QNetworkReply::TimeoutError:
+            status = Status::Timeout;
+            break;
+        default:
+            status = Status::Corrupted;
+            break;
+        }
+        closedCallback(status);
+        closed = true;
+        reply.release()->deleteLater();
     }
 }
 
