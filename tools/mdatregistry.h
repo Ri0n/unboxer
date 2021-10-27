@@ -24,54 +24,32 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
 
-#include "status.h"
+#include "box.h"
 
 #include <QByteArray>
+#include <QFile>
 #include <QHash>
-#include <QUuid>
+#include <QList>
+#include <QObject>
 
-#include <functional>
-#include <memory>
-#include <optional>
-#include <variant>
-
-namespace unboxer {
-
-class Box {
+class MdatRegistry : public QObject {
+    Q_OBJECT
 public:
-    using Ptr = std::shared_ptr<Box>;
+    using BoxClosedCallback = std::function<void(unboxer::Box::Ptr, const QString &filename)>;
 
-    inline Box(bool          isContainer = false,
-               QByteArray    type        = QByteArray(),
-               std::uint64_t size        = 0,
-               std::uint64_t fileOffset  = 0) :
-        isContainer(isContainer),
-        type(type), size(size), fileOffset(fileOffset)
-    {
-    }
+    MdatRegistry(const QString &fnameTemplate, const QList<QByteArray> &boxTypes = {});
+    ~MdatRegistry();
 
-    inline QString stringType()
-    {
-        if (type.size() > 4) {
-            return QUuid::fromRfc4122(type).toString();
-        }
-        return QString::fromLatin1(type);
-    }
+    void add(unboxer::Box::Ptr box);
+    void addBoxData(unboxer::Box::Ptr box, const QByteArray &data);
+    void closeBox(unboxer::Box::Ptr box);
 
-    bool          isContainer = false;
-    QByteArray    type;
-    std::uint64_t size; // full size. 0 - all remaining
-    std::uint64_t fileOffset;
-
-    // callbacks to be set by a library user
-    std::function<void(Box::Ptr)>             onSubBoxOpen;
-    std::function<Status(const QByteArray &)> onDataRead;
-    std::function<Status()>                   onClose;
+    inline void setOnBoxClosedCallback(BoxClosedCallback callback) { boxClosedCallback = callback; }
 
 private:
-    friend class UnboxerImpl;
-    bool          isClosed_ = false;
-    std::uint64_t dataFed_  = 0;
+    QString                                        fnameTemplate;
+    QList<QByteArray>                              boxTypes;
+    std::unordered_map<unboxer::Box::Ptr, QFile *> files;
+    int                                            fileIndex = 1;
+    BoxClosedCallback                              boxClosedCallback;
 };
-
-}

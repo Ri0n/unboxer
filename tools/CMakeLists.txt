@@ -27,18 +27,14 @@ set(CMAKE_CXX_STANDARD 17)
 
 include(GNUInstallDirs)
 
-find_package(Qt5 COMPONENTS Core REQUIRED)
+find_package(Qt5 COMPONENTS Core Gui REQUIRED)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 set(TARGET mp4crawler)
 
-add_executable (${TARGET} mp4crawler.cpp)
-#target_include_directories(${TARGET} PUBLIC
-#  ${libunboxer_SOURCE_DIR}
-#  ${libunboxer_BINARY_DIR}
-#)
-target_link_libraries (${TARGET} PRIVATE Qt::Core unboxer${UNBOXER_LIB_SUFFIX})
+add_executable (${TARGET} mp4crawler.cpp mdatregistry.h mdatregistry.cpp)
+target_link_libraries (${TARGET} PRIVATE Qt::Core Qt::Gui unboxer${UNBOXER_LIB_SUFFIX})
 
 install(
   TARGETS ${TARGET}

@@ -28,12 +28,18 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "status.h"
 #include "unboxer.h"
 
+#include "mdatregistry.h"
+
 #include <QCommandLineParser>
 #include <QCoreApplication>
 #include <QFile>
+#include <QFileInfo>
+#include <QImage>
+#include <QMimeDatabase>
 #include <QTimer>
 #include <QUrl>
 #include <QUuid>
+#include <QXmlStreamReader>
 #include <QtDebug>
 
 #include <iostream>
@@ -42,30 +48,77 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <inttypes.h>
 
 using namespace unboxer;
-using FileUnboxer = unboxer::Unboxer<InputFileImpl, NullCache>;
-using HttpUnboxer = unboxer::Unboxer<InputHttpImpl, NullCache>;
-int spaces        = 0;
+using FileUnboxer         = unboxer::Unboxer<InputFileImpl, NullCache>;
+using HttpUnboxer         = unboxer::Unboxer<InputHttpImpl, NullCache>;
+int           spaces      = 0;
+MdatRegistry *boxRegistry = nullptr;
 
 void setupBox(Box::Ptr box)
 {
     std::stringstream ss;
-    auto              type = box->type.isEmpty() ? QString("artificial root")
-                     : box->type.size() > 4      ? QUuid::fromRfc4122(box->type).toString()
-                                                 : QString::fromLatin1(box->type);
+    auto              type = box->stringType();
+    if (type.isEmpty()) {
+        type = QString("artificial root");
+    }
     ss << QString(spaces, ' ').toStdString() << type.toStdString() << " of size " << box->size << " with fileOffset "
        << box->fileOffset;
     std::cout << ss.str() << std::endl;
     box->onSubBoxOpen = setupBox;
-    box->onClose      = []() {
+    box->onClose      = [weakBox = std::weak_ptr<Box>(box)]() {
         spaces -= 2;
+        boxRegistry->closeBox(weakBox.lock());
         return Status::Ok;
     };
-    box->onDataRead = [&](const QByteArray &) mutable { return Status::Ok; };
+    box->onDataRead = [weakBox = std::weak_ptr<Box>(box)](const QByteArray &data) mutable {
+        std::stringstream ss;
+        ss << QString(spaces + 2, ' ').toStdString() << data.data();
+        // std::cout << ss.str() << std::endl;
+        boxRegistry->addBoxData(weakBox.lock(), data);
+        return Status::Ok;
+    };
+    boxRegistry->add(box);
     spaces += 2;
 }
 
-template <class SpecificUnboxer> std::unique_ptr<SpecificUnboxer> makeUnboxer(const QString &uri, std::size_t readSize)
+void extractImages([[maybe_unused]] Box::Ptr box, const QString &filename)
 {
+    QMimeDatabase db;
+    auto          mimeType = db.mimeTypeForFile(filename);
+    if (!mimeType.name().contains("xml") && !mimeType.name().contains("html")) {
+        return;
+    }
+    qDebug() << "found xml in " << filename << ". extracting images";
+    QFile file(filename);
+    file.open(QIODevice::ReadOnly);
+    QXmlStreamReader reader(&file);
+    while (!reader.atEnd()) {
+        if (reader.readNext() == QXmlStreamReader::StartElement && reader.name() == "image") {
+            auto attrs     = reader.attributes();
+            auto imagetype = attrs.value("imagetype").toString();
+            if (imagetype.isEmpty() || attrs.value("encoding") != "Base64") {
+                continue;
+            }
+            auto id       = attrs.value("xml:id").toString();
+            auto dstFName = QString("%1.%2.%3")
+                                .arg(QFileInfo(filename).fileName(), id, attrs.value("imagetype").toString().toLower());
+            qDebug() << "found image: " << id << " saving to " << dstFName;
+            auto text  = reader.readElementText();
+            auto image = QImage::fromData(QByteArray::fromBase64(text.toLatin1()), imagetype.toLatin1().data());
+            if (image.isNull()) {
+                qWarning() << "failed to decode image: " << text;
+            }
+            image.save(dstFName);
+        }
+    }
+}
+
+template <class SpecificUnboxer>
+std::unique_ptr<SpecificUnboxer> makeUnboxer(const QString &uri, std::size_t readSize, const QString registryTemplate)
+{
+    boxRegistry = new MdatRegistry(registryTemplate);
+    boxRegistry->setParent(qApp);
+    boxRegistry->setOnBoxClosedCallback(extractImages);
+
     std::unique_ptr<SpecificUnboxer> unboxer;
     unboxer = std::make_unique<SpecificUnboxer>(uri.toStdString());
     unboxer->setStreamOpenedCallback([unboxer = unboxer.get(), readSize](Box::Ptr rootBox) mutable {
@@ -104,13 +157,27 @@ int main(int argc, char *argv[])
     parser.process(app);
     QString uri = parser.value(uriOption);
 
-    auto url = QUrl::fromUserInput(uri, "", QUrl::AssumeLocalFile);
+    auto    url = QUrl::fromUserInput(uri, "", QUrl::AssumeLocalFile);
+    QString registryTemplate;
     if (url.scheme().isEmpty() || url.scheme() == "file") {
-        uri          = url.toLocalFile();
-        auto unboxer = makeUnboxer<FileUnboxer>(uri, 16384);
-        return app.exec();
+        uri = url.toLocalFile();
+        QFileInfo fi(uri);
+        if (fi.isFile() && fi.isReadable()) {
+            registryTemplate = fi.fileName() + ".%1.%2";
+            qDebug() << "opening local file: " << uri;
+            auto unboxer = makeUnboxer<FileUnboxer>(uri, 16384, registryTemplate);
+            return app.exec();
+        } else {
+            qWarning() << "file " << uri << " is not readable";
+        }
     } else {
-        auto unboxer = makeUnboxer<HttpUnboxer>(uri, 2048);
+        if (url.path().isEmpty()) {
+            registryTemplate = url.host() + ".%1.%2";
+        } else {
+            registryTemplate = QFileInfo(url.path()).fileName() + ".%1.%2";
+        }
+        qDebug() << "opening http file: " << uri;
+        auto unboxer = makeUnboxer<HttpUnboxer>(uri, 2048, registryTemplate);
         return app.exec();
     }
 }
