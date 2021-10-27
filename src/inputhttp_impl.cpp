@@ -32,20 +32,13 @@ void InputHttpImpl::open()
 {
     reply.reset(nam.get(QNetworkRequest(QUrl(QString::fromStdString(url)))));
     connect(reply.get(), &QNetworkReply::metaDataChanged, this, [&]() { openedCallback(); });
-    connect(reply.get(), &QNetworkReply::readyRead, this, &InputHttpImpl::tryRead);
+    connect(reply.get(), &QNetworkReply::readyRead, this, [this]() { dataReadyCallback(); });
     connect(reply.get(), &QNetworkReply::finished, this, [this]() { tryReportClose(); });
 }
 
 void InputHttpImpl::read(std::size_t size)
 {
     needToRead += size;
-    tryRead();
-}
-
-void InputHttpImpl::reset() { reply.reset(); }
-
-void InputHttpImpl::tryRead()
-{
     if (reply && reply->bytesAvailable()) {
         auto dataSz = qMin(needToRead, reply->bytesAvailable());
         if (dataSz) {
@@ -60,6 +53,13 @@ void InputHttpImpl::tryRead()
             dataReadyCallback();
         }
     }
+}
+
+void InputHttpImpl::reset()
+{
+    auto r = reply.release();
+    r->disconnect(this);
+    r->deleteLater();
 }
 
 void InputHttpImpl::tryReportClose()

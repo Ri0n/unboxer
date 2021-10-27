@@ -69,7 +69,6 @@ public:
     std::size_t bytesAvailable() const { return (reply && reply->isOpen()) ? reply->bytesAvailable() : 0; }
 
 private:
-    void tryRead();
     void tryReportClose();
 };
 
