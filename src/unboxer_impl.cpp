@@ -49,6 +49,7 @@ Status UnboxerImpl::onStreamDataRead(const QByteArray &data) { return reader.fee
 
 void UnboxerImpl::onStreamClosed(Status reason)
 {
+    reason = reader.close(reason);
     if (reason == Status::Eof) {
         while (!boxes.empty()) {
             // check for incomplete boxes like one having explicit size but still requiring more data to close

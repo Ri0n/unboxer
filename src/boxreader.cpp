@@ -156,7 +156,7 @@ Status BoxReaderImpl::feed(const QByteArray &data)
 Status BoxReaderImpl::close(Status reason)
 {
     if (reason == Status::Eof) {
-        if (*fullBoxSize) { // got unfinished box
+        if (fullBoxSize && *fullBoxSize) { // got unfinished box
             return Status::Corrupted;
         }
         while (!parents.empty()) {
