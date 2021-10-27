@@ -22,7 +22,7 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "mdatregistry.h"
+#include "blobextractor.h"
 
 #include "status.h"
 
@@ -30,9 +30,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <QPointer>
 #include <QUuid>
 
-using namespace unboxer;
+namespace unboxer {
 
-MdatRegistry::MdatRegistry(const QString &fnameTemplate, const QList<QByteArray> &boxTypes) :
+BlobExtractor::BlobExtractor(const QString &fnameTemplate, const QList<QByteArray> &boxTypes) :
     fnameTemplate(fnameTemplate), boxTypes(boxTypes)
 {
     Q_ASSERT(!fnameTemplate.isEmpty());
@@ -41,7 +41,7 @@ MdatRegistry::MdatRegistry(const QString &fnameTemplate, const QList<QByteArray>
     }
 }
 
-MdatRegistry::~MdatRegistry()
+BlobExtractor::~BlobExtractor()
 {
     for (auto const &[_, file] : files) {
         if (file->isOpen()) {
@@ -51,7 +51,7 @@ MdatRegistry::~MdatRegistry()
     }
 }
 
-void MdatRegistry::add(Box::Ptr box)
+void BlobExtractor::add(Box::Ptr box)
 {
     if (!boxTypes.contains(box->type) || box->type.isEmpty()) {
         return;
@@ -70,7 +70,7 @@ void MdatRegistry::add(Box::Ptr box)
     }
 }
 
-void MdatRegistry::addBoxData(unboxer::Box::Ptr box, const QByteArray &data)
+void BlobExtractor::addBoxData(unboxer::Box::Ptr box, const QByteArray &data)
 {
     auto it = files.find(box);
     if (it == files.end()) {
@@ -85,7 +85,7 @@ void MdatRegistry::addBoxData(unboxer::Box::Ptr box, const QByteArray &data)
     }
 }
 
-void MdatRegistry::closeBox(unboxer::Box::Ptr box)
+void BlobExtractor::closeBox(unboxer::Box::Ptr box)
 {
     auto it = files.find(box);
     if (it == files.end()) {
@@ -95,4 +95,6 @@ void MdatRegistry::closeBox(unboxer::Box::Ptr box)
     if (boxClosedCallback) {
         boxClosedCallback(box, it->second->fileName());
     }
+}
+
 }

@@ -33,7 +33,7 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 set(TARGET mp4crawler)
 
-add_executable (${TARGET} mp4crawler.cpp mdatregistry.h mdatregistry.cpp)
+add_executable (${TARGET} mp4crawler.cpp)
 target_link_libraries (${TARGET} PRIVATE Qt::Core Qt::Gui unboxer${UNBOXER_LIB_SUFFIX})
 
 install(

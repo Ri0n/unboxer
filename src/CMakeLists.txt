@@ -42,6 +42,7 @@ set(SOURCES
     inputmemory_impl.cpp
     inputhttp_impl.cpp
     inputfile_impl.cpp
+    blobextractor.cpp
     )
 set(HEADERS
     status.h
@@ -55,6 +56,7 @@ set(HEADERS
     inputmemory_impl.h
     inputhttp_impl.h
     inputfile_impl.h
+    blobextractor.h
     )
 
 

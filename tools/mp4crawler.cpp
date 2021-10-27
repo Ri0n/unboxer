@@ -28,7 +28,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "status.h"
 #include "unboxer.h"
 
-#include "mdatregistry.h"
+#include "blobextractor.h"
 
 #include <QCommandLineParser>
 #include <QCoreApplication>
@@ -48,11 +48,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <inttypes.h>
 
 using namespace unboxer;
-using FileUnboxer           = unboxer::Unboxer<InputFileImpl, NullCache>;
-using HttpUnboxer           = unboxer::Unboxer<InputHttpImpl, NullCache>;
-int           spaces        = 0;
-MdatRegistry *boxRegistry   = nullptr;
-bool          verboseOutput = false;
+using FileUnboxer            = unboxer::Unboxer<InputFileImpl, NullCache>;
+using HttpUnboxer            = unboxer::Unboxer<InputHttpImpl, NullCache>;
+int            spaces        = 0;
+BlobExtractor *blobExtractor = nullptr;
+bool           verboseOutput = false;
 
 void setupBox(Box::Ptr box)
 {
@@ -67,7 +67,7 @@ void setupBox(Box::Ptr box)
     box->onSubBoxOpen = setupBox;
     box->onClose      = [weakBox = std::weak_ptr<Box>(box)]() {
         spaces -= 2;
-        boxRegistry->closeBox(weakBox.lock());
+        blobExtractor->closeBox(weakBox.lock());
         return Status::Ok;
     };
     box->onDataRead = [weakBox = std::weak_ptr<Box>(box)](const QByteArray &data) mutable {
@@ -76,10 +76,10 @@ void setupBox(Box::Ptr box)
             ss << QString(spaces + 2, ' ').toStdString() << data.data();
             std::cout << ss.str() << std::endl;
         }
-        boxRegistry->addBoxData(weakBox.lock(), data);
+        blobExtractor->addBoxData(weakBox.lock(), data);
         return Status::Ok;
     };
-    boxRegistry->add(box);
+    blobExtractor->add(box);
     spaces += 2;
 }
 
@@ -118,9 +118,9 @@ void extractImages([[maybe_unused]] Box::Ptr box, const QString &filename)
 template <class SpecificUnboxer>
 std::unique_ptr<SpecificUnboxer> makeUnboxer(const QString &uri, std::size_t readSize, const QString registryTemplate)
 {
-    boxRegistry = new MdatRegistry(registryTemplate);
-    boxRegistry->setParent(qApp);
-    boxRegistry->setOnBoxClosedCallback(extractImages);
+    blobExtractor = new BlobExtractor(registryTemplate);
+    blobExtractor->setParent(qApp);
+    blobExtractor->setOnBoxClosedCallback(extractImages);
 
     std::unique_ptr<SpecificUnboxer> unboxer;
     unboxer = std::make_unique<SpecificUnboxer>(uri.toStdString());

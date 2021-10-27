@@ -25,6 +25,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #pragma once
 
 #include "box.h"
+#include "unboxer_export.h"
 
 #include <QByteArray>
 #include <QFile>
@@ -32,13 +33,15 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <QList>
 #include <QObject>
 
-class MdatRegistry : public QObject {
+namespace unboxer {
+
+class UNBOXER_EXPORT BlobExtractor : public QObject {
     Q_OBJECT
 public:
     using BoxClosedCallback = std::function<void(unboxer::Box::Ptr, const QString &filename)>;
 
-    MdatRegistry(const QString &fnameTemplate, const QList<QByteArray> &boxTypes = {});
-    ~MdatRegistry();
+    BlobExtractor(const QString &fnameTemplate, const QList<QByteArray> &boxTypes = {});
+    ~BlobExtractor();
 
     void add(unboxer::Box::Ptr box);
     void addBoxData(unboxer::Box::Ptr box, const QByteArray &data);
@@ -53,3 +56,5 @@ private:
     int                                            fileIndex = 1;
     BoxClosedCallback                              boxClosedCallback;
 };
+
+}
