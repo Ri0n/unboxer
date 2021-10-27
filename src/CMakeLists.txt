@@ -30,6 +30,7 @@ set(LIB_TARGET_NAME unboxer)
 include(GNUInstallDirs)
 include(GenerateExportHeader)
 
+find_package( Qt5Core 5.12.0 REQUIRED )
 find_package(Qt5 COMPONENTS Core Network REQUIRED)
 
 set(CMAKE_C_VISIBILITY_PRESET hidden)
@@ -71,7 +72,7 @@ target_include_directories(${LIB_TARGET_NAME}${suffix} PUBLIC
   $<INSTALL_INTERFACE:include/${LIB_TARGET_NAME}>  # <prefix>/include/unboxer
 )
 target_include_directories(${LIB_TARGET_NAME}${suffix} PRIVATE ${PROJECT_BINARY_DIR})
-target_link_libraries (${LIB_TARGET_NAME}${suffix} PUBLIC Qt::Core Qt::Network)
+target_link_libraries (${LIB_TARGET_NAME}${suffix} PUBLIC Qt5::Core Qt5::Network)
 target_compile_definitions(${LIB_TARGET_NAME}${suffix} PRIVATE UNBOXER_LIBRARY)
 
 install(TARGETS ${LIB_TARGET_NAME}${suffix} DESTINATION ${LIBRARY_INSTALL_DIR})

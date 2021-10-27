@@ -21,15 +21,29 @@ First ensure you have next packages installed
 - qt widgets dev
 - cmake
 
+For debain-based distros take a look on the Dockerfile. It has some clues what to install.
+
 Next use cmake as easy as following assuming you are in the projects directory:
 
 ```bash
 mkdir -p build && cd build && cmake .. && cmake --build .
 ```
 
+If it still doesn't build, try to build with docker
+
+```bash
+docker build . -t mp4crawler
+```
+
 ## Starting up
 
 Check `./tools` directory for a demo app.  Try `--help` too. By default it won't try to get data from HTTP. Instead it's possible to start it with `mp4crawler -u https://demo.castlabs.com/tmp/text0.mp4`. Or it's possible to download `text0.mp4` into the current directory and just start the app (or point to the file with `-u /path/to/text0.mp4`).
+
+Or with docker
+
+```bash
+docker run --rm -it mp4crawler:latest -u https://demo.castlabs.com/tmp/text0.mp4
+```
 
 ## Design and usage
 

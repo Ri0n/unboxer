@@ -33,7 +33,7 @@ enable_testing(true)
 macro(add_unboxer_test target)
 add_executable (${target} ${target}.cpp)
 
-target_link_libraries (${target} PRIVATE Qt::Test unboxer${UNBOXER_LIB_SUFFIX})
+target_link_libraries (${target} PRIVATE Qt5::Test unboxer${UNBOXER_LIB_SUFFIX})
 add_test(NAME ${target} COMMAND ${target})
 endmacro()
 
