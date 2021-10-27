@@ -60,7 +60,7 @@ void BlobExtractor::add(Box::Ptr box)
     auto it = files.find(box);
     Q_ASSERT(it == files.end());
 
-    auto file = new QFile(fnameTemplate.arg(box->stringType(), QString::number(fileIndex++)));
+    auto file = new QFile(outputDirectory.filePath(fnameTemplate.arg(box->stringType(), QString::number(fileIndex++))));
     bool inserted;
     std::tie(it, inserted) = files.insert(std::make_pair(box, file));
     if (!file->open(QIODevice::WriteOnly)) {

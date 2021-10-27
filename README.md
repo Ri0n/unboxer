@@ -39,11 +39,13 @@ docker build . -t mp4crawler
 
 Check `./tools` directory for a demo app.  Try `--help` too. By default it won't try to get data from HTTP. Instead it's possible to start it with `mp4crawler -u https://demo.castlabs.com/tmp/text0.mp4`. Or it's possible to download `text0.mp4` into the current directory and just start the app (or point to the file with `-u /path/to/text0.mp4`).
 
-Or with docker
+Or with docker:
 
 ```bash
-docker run --rm -it mp4crawler:latest -u https://demo.castlabs.com/tmp/text0.mp4
+docker run --rm -it -v/tmp:/output mp4crawler:latest -u https://demo.castlabs.com/tmp/text0.mp4 -o /output
 ```
+
+And the extracted data will be located in `/tmp` (change it to whatever you like more).
 
 ## Design and usage
 

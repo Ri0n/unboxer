@@ -28,6 +28,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "unboxer_export.h"
 
 #include <QByteArray>
+#include <QDir>
 #include <QFile>
 #include <QHash>
 #include <QList>
@@ -48,6 +49,7 @@ public:
     void closeBox(unboxer::Box::Ptr box);
 
     inline void setOnBoxClosedCallback(BoxClosedCallback callback) { boxClosedCallback = callback; }
+    inline void setOutputDirectory(const QDir &directory) { outputDirectory = directory; }
 
 private:
     QString                                        fnameTemplate;
@@ -55,6 +57,7 @@ private:
     std::unordered_map<unboxer::Box::Ptr, QFile *> files;
     int                                            fileIndex = 1;
     BoxClosedCallback                              boxClosedCallback;
+    QDir                                           outputDirectory;
 };
 
 }

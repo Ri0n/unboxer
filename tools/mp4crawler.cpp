@@ -32,6 +32,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <QCommandLineParser>
 #include <QCoreApplication>
+#include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QImage>
@@ -53,6 +54,7 @@ using HttpUnboxer            = unboxer::Unboxer<InputHttpImpl, NullCache>;
 int            spaces        = 0;
 BlobExtractor *blobExtractor = nullptr;
 bool           verboseOutput = false;
+QDir           extractDir;
 
 void setupBox(Box::Ptr box)
 {
@@ -104,6 +106,7 @@ void extractImages([[maybe_unused]] Box::Ptr box, const QString &filename)
             auto id       = attrs.value("xml:id").toString();
             auto dstFName = QString("%1.%2.%3")
                                 .arg(QFileInfo(filename).fileName(), id, attrs.value("imagetype").toString().toLower());
+            dstFName = extractDir.filePath(dstFName);
             qDebug() << "found image: " << id << " saving to " << dstFName;
             auto text  = reader.readElementText();
             auto image = QImage::fromData(QByteArray::fromBase64(text.toLatin1()), imagetype.toLatin1().data());
@@ -121,6 +124,7 @@ std::unique_ptr<SpecificUnboxer> makeUnboxer(const QString &uri, std::size_t rea
     blobExtractor = new BlobExtractor(registryTemplate);
     blobExtractor->setParent(qApp);
     blobExtractor->setOnBoxClosedCallback(extractImages);
+    blobExtractor->setOutputDirectory(extractDir);
 
     std::unique_ptr<SpecificUnboxer> unboxer;
     unboxer = std::make_unique<SpecificUnboxer>(uri.toStdString());
@@ -163,11 +167,24 @@ int main(int argc, char *argv[])
                                  "uri",
                                  "text0.mp4");
     QCommandLineOption verboseOption("verbose", "Enable verbose output (together with data blobs)");
+    QCommandLineOption extractDirOption(QStringList() << "o"
+                                                      << "outputdir",
+                                        "A directory to extract contents to (current dir by default)",
+                                        "outputdir");
     parser.addOption(uriOption);
     parser.addOption(verboseOption);
+    parser.addOption(extractDirOption);
     parser.process(app);
     QString uri   = parser.value(uriOption);
     verboseOutput = parser.isSet(verboseOption);
+    if (parser.isSet(extractDirOption)) {
+        extractDir = QDir(parser.value(extractDirOption));
+        if (!extractDir.exists()) {
+            qDebug() << "Extract dir " << extractDir << "doesn't exist. fallback to current dir";
+            extractDir = QDir::current();
+        }
+    }
+    qDebug() << "output dir: " << extractDir.absolutePath();
 
     auto    url = QUrl::fromUserInput(uri, "", QUrl::AssumeLocalFile);
     QString registryTemplate;
