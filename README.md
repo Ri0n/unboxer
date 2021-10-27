@@ -31,24 +31,13 @@ mkdir -p build && cd build && cmake .. && cmake --build .
 
 One can you the built by default application in the `./tools` directory.
 
-## Design
+## Design and usage
 
 So we have boxes and one of is root box. A box can emit other boxes or byte arrays depending on its type. There is also a controlling object, an entry point for all the operations. Except providing boxes the controlling object will also report any transport issues.
-
-The pipeline looks like..
-
-```mermaid
-graph LR
-A[Byte array source] --> B[Cacher] --> C[Analyzer] --> D{Box is complete}
-D--> |yes| E[emit new box]
-D--> |no| F{eligible for incomplete emit}
-   F-->|yes| E
-   F-->|no, put data back| B
-```
 
 From a library user perspective everything looks like following
 
 1. Create Unboxer object of some specific flavor
-2. Attach signals for getting new boxes
-3. Start getting all kinds of boxes starting from the root one
-4. A box will have `incomplete` flag on and it automatically start behaving as a streaming container. In other words as soon as you set data callback on the new box it will start catching new data/boxes.
+2. Attach stream signals, like stream open.
+3. Get root box on stream open and attach to its signals like opening sub-boxes and/or reading  payload.
+4. For every open sub-box it's possible to change how it's treated (as an another box container or a binary blob)
