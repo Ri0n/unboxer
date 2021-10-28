@@ -40,8 +40,8 @@ template <class Source, class Cache> class Unboxer {
 public:
     using StreamType = InputStreamer<Source, Cache>;
 
-    Unboxer(const std::string &uri) :
-        impl(std::make_unique<UnboxerImpl>()),
+    Unboxer(const std::string &uri, std::vector<QByteArray> &&containerTypes = { { "moof", "traf" } }) :
+        impl(std::make_unique<UnboxerImpl>(std::move(containerTypes))),
         stream_(uri,
                 std::bind(&UnboxerImpl::onStreamOpened, impl.get()),
                 std::bind(&UnboxerImpl::onStreamDataRead, impl.get(), std::placeholders::_1),

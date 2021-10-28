@@ -40,7 +40,7 @@ public:
     using StreamOpenedCallback = std::function<void(Box::Ptr)>;
     using StreamClosedCallback = std::function<void(Status)>;
 
-    UnboxerImpl();
+    UnboxerImpl(std::vector<QByteArray> &&containerTypes);
 
     Box::Ptr rootBox() const { return boxes.empty() ? Box::Ptr {} : boxes.front(); }
 
@@ -53,6 +53,8 @@ public:
     bool   onBoxOpened(const QByteArray &type, std::uint64_t size, std::uint64_t fileOffset);
     Status onDataRead(const QByteArray &data);
     void   onBoxClosed();
+
+    std::vector<QByteArray> containerTypes;
 
     StreamOpenedCallback streamOpenedCallback;
     StreamClosedCallback streamClosedCallback;

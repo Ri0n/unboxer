@@ -28,8 +28,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 namespace unboxer {
 
-UnboxerImpl::UnboxerImpl() :
-    reader {
+UnboxerImpl::UnboxerImpl(std::vector<QByteArray> &&containerTypes) :
+    containerTypes(std::move(containerTypes)), reader {
         std::bind(&UnboxerImpl::onBoxOpened, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
         std::bind(&UnboxerImpl::onBoxClosed, this),
         std::bind(&UnboxerImpl::onDataRead, this, std::placeholders::_1)
@@ -76,13 +76,11 @@ void UnboxerImpl::onStreamClosed(Status reason)
 
 bool UnboxerImpl::onBoxOpened(const QByteArray &type, std::uint64_t size, uint64_t fileOffset)
 {
-    static QVector<QByteArray> containerBoxes { { "moof", "traf" } };
-
-    auto parentBox = boxes.back();
-    auto box       = std::make_shared<Box>(containerBoxes.contains(type), type, size, fileOffset);
-    boxes.emplace_back(box);
+    bool isContainer = std::find(containerTypes.begin(), containerTypes.end(), type) != containerTypes.end();
+    auto parentBox   = boxes.back();
+    auto box         = boxes.emplace_back(std::make_shared<Box>(isContainer, type, size, fileOffset));
     if (parentBox->onSubBoxOpen) {
-        parentBox->onSubBoxOpen(boxes.back());
+        parentBox->onSubBoxOpen(box);
     }
     return box->isContainer;
 }
