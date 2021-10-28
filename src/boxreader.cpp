@@ -198,14 +198,20 @@ Status BoxReaderImpl::sendData()
         boxClosedCallback();
         while (!parents.empty()) {
             const auto &parent = parents.back();
-            if (parent.size && parent.fileOffset + parent.size == fileOffset) { // if read all the parent
-                if (++parents.begin() != parents.end()) { // close all boxes but our artificial root
-                    boxClosedCallback();
+            if (parent.size) {
+                auto expectedParentEnd = parent.fileOffset + parent.size;
+                if (expectedParentEnd < fileOffset) { // if children took more than expected
+                    return Status::Corrupted;
                 }
-                parents.pop_back();
-            } else {
-                break;
+                if (expectedParentEnd == fileOffset) {        // if read all the parent
+                    if (++parents.begin() != parents.end()) { // close all boxes but our artificial root
+                        boxClosedCallback();
+                    }
+                    parents.pop_back();
+                    continue;
+                }
             }
+            break;
         }
     }
     return Status::Ok;
